@@ -283,8 +283,15 @@ void Application::InitializeMicrolink() {
         return;
     }
 
+    // microlink_init() stores config.auth_key as a const char* without copying
+    // the string. Stash it in a static buffer so the pointer outlives this
+    // function — InitializeMicrolink only ever runs once per boot.
+    static char auth_key_buf[96];
+    strncpy(auth_key_buf, auth_key.c_str(), sizeof(auth_key_buf) - 1);
+    auth_key_buf[sizeof(auth_key_buf) - 1] = '\0';
+
     microlink_config_t config = {};
-    config.auth_key    = auth_key.c_str();
+    config.auth_key    = auth_key_buf;
     config.device_name = "aipi-lite";
     config.enable_derp = true;
     config.enable_disco = true;
