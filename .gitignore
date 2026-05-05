@@ -1,5 +1,9 @@
 tmp/
-components/
+# components/ is git-ignored except for our vendored deps, which we track
+# explicitly so we don't depend on a re-vendor step at build time.
+components/*
+!components/microlink/
+!components/wireguard_lwip/
 managed_components/
 build/
 dist/

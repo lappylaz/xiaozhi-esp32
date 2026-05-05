@@ -131,6 +131,15 @@ dependencies:
     rules:
     - if: target in [esp32s3, esp32p4]
 
+  # sabrina-integration: MicroLink (Tailscale ts2021 client) is vendored at
+  # <project>/components/microlink + components/wireguard_lwip rather than
+  # consumed via the component manager. The repo is a multi-component
+  # workspace and the manager mishandles "two paths from the same git URL"
+  # — it caches the first fetch and fails to re-extract the second path.
+  # Vendoring side-steps that and pins the exact source the build sees.
+  # Source: https://github.com/CamM2325/microlink @ v2.1.0
+  # Re-vendor: tools/vendor_microlink.sh (run when bumping the version).
+
   ## Required IDF version
   idf:
     version: '>=5.5.2'
