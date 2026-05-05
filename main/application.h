@@ -136,6 +136,18 @@ private:
     AudioService audio_service_;
     std::unique_ptr<Ota> ota_;
 
+#if CONFIG_USE_MICROLINK_TAILSCALE
+    // sabrina-integration: MicroLink (Tailscale ts2021) handle. Created
+    // in Initialize() via microlink_init(); started on first
+    // NetworkEvent::Connected via microlink_start(). Lives until shutdown.
+    void* microlink_ = nullptr;       // microlink_t* (opaque pointer to avoid header in app.h)
+    bool microlink_started_ = false;  // single-shot guard for microlink_start
+    void InitializeMicrolink();
+public:
+    void* GetMicrolink() { return microlink_; }
+private:
+#endif
+
     bool has_server_time_ = false;
     bool aborted_ = false;
     bool assets_version_checked_ = false;

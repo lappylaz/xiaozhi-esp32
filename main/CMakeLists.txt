@@ -1003,6 +1003,7 @@ idf_component_register(SRCS ${SOURCES}
                         fatfs
                         esp_http_client    # sabrina-integration: SabrinaProtocol POSTs PCM to /api/stt
                         esp-tls            # sabrina-integration: cert bundle for HTTPS
+                        microlink          # sabrina-integration: Tailscale ts2021 (vendored at <project>/components/microlink)
                         ${MAIN_PRIV_REQUIRES_EXTRA}
                     )
 

@@ -27,6 +27,9 @@
 #include <esp_opus_dec.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#if CONFIG_USE_MICROLINK_TAILSCALE
+#include "microlink.h"
+#endif
 
 #define TAG "Sabrina"
 
@@ -94,6 +97,30 @@ bool SabrinaProtocol::OpenAudioChannel() {
 }
 
 bool SabrinaProtocol::ConnectWebSocket() {
+#if CONFIG_USE_MICROLINK_TAILSCALE
+    // Wait for MicroLink (tailnet) to be up before attempting wss://
+    // — api.sabrinainc.ai resolves only over tailnet DNS, so trying
+    // before the tailnet is connected gets DNS NXDOMAIN. Cap at 30 s.
+    auto* ml = static_cast<microlink_t*>(Application::GetInstance().GetMicrolink());
+    if (ml != nullptr) {
+        for (int i = 0; i < 60; i++) {
+            if (microlink_is_connected(ml)) {
+                ESP_LOGI(TAG, "MicroLink up after ~%d ms; proceeding to WS", i * 500);
+                break;
+            }
+            if (i == 0) {
+                ESP_LOGI(TAG, "Waiting for MicroLink tailnet to come up...");
+            }
+            vTaskDelay(pdMS_TO_TICKS(500));
+        }
+        if (!microlink_is_connected(ml)) {
+            ESP_LOGE(TAG, "MicroLink not up after 30 s; WS connect will likely fail");
+            // Fall through and try anyway — the WS connect timeout will
+            // produce a cleaner error than us returning false here.
+        }
+    }
+#endif
+
     auto network = Board::GetInstance().GetNetwork();
     websocket_ = network->CreateWebSocket(1);
     if (websocket_ == nullptr) {

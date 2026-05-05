@@ -3,11 +3,13 @@
 # One-shot device provisioning for the AiPi-Lite running our xiaozhi fork.
 #
 # Writes Settings("sabrina") values into the device's NVS partition so
-# SabrinaProtocol::LoadConfig() can read them at boot:
-#   sabrina/url        — wss://… (Sabrina /ws/voice WebSocket)
-#   sabrina/stt_url    — https://… (Sabrina /api/stt Whisper proxy)
-#   sabrina/jwt        — long-lived JWT for /ws/voice ?token=…
-#   sabrina/device_key — DEVICE_API_KEY for /api/stt X-API-Key header
+# SabrinaProtocol::LoadConfig() and Application::InitializeMicrolink()
+# can read them at boot:
+#   sabrina/url            — wss://… (Sabrina /ws/voice WebSocket)
+#   sabrina/stt_url        — https://… (Sabrina /api/stt Whisper proxy)
+#   sabrina/jwt            — long-lived JWT for /ws/voice ?token=…
+#   sabrina/device_key     — DEVICE_API_KEY for /api/stt X-API-Key header
+#   sabrina/tailscale_key  — Tailscale auth key for MicroLink tailnet join
 #
 # Approach:
 #   1. Mint a fresh JWT via mint_device_jwt.py (using JWT_SECRET_KEY from
@@ -73,6 +75,15 @@ if [ -z "$DEVICE_KEY" ]; then
     exit 5
 fi
 
+# 2b. Pull TAILSCALE_AIPI_LITE_AUTH_KEY from Doppler.
+#     Optional — if absent, the device just won't join the tailnet
+#     (CONFIG_USE_MICROLINK_TAILSCALE will silently no-op).
+echo "→ reading TAILSCALE_AIPI_LITE_AUTH_KEY from Doppler (optional)..."
+TS_KEY="$(doppler secrets get TAILSCALE_AIPI_LITE_AUTH_KEY -p sabrina -c dev_personal --plain 2>/dev/null || true)"
+if [ -z "$TS_KEY" ]; then
+    echo "  (not set — MicroLink will skip tailnet bring-up; provision later if/when needed)"
+fi
+
 # 3. Build NVS CSV. Note: nvs_partition_gen.py uses single-line CSV with
 #    a specific header. Quote the values we know contain '/' / ':' / '=' /
 #    plenty of base64 padding — wrap in double quotes.
@@ -84,6 +95,7 @@ url,data,string,"$WS_URL"
 stt_url,data,string,"$STT_URL"
 jwt,data,string,"$JWT"
 device_key,data,string,"$DEVICE_KEY"
+tailscale_key,data,string,"$TS_KEY"
 EOF
 
 # 4. Compile to 16 KB binary (NVS partition size on AiPi-Lite is 0x4000).

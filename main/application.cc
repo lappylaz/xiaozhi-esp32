@@ -6,6 +6,10 @@
 #include "mqtt_protocol.h"
 #include "websocket_protocol.h"
 #include "sabrina_protocol.h"
+#if CONFIG_USE_MICROLINK_TAILSCALE
+#include "microlink.h"
+#include "settings.h"
+#endif
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "assets.h"
@@ -156,6 +160,13 @@ void Application::Initialize() {
         }
     });
 
+#if CONFIG_USE_MICROLINK_TAILSCALE
+    // sabrina-integration: bring up the MicroLink (Tailscale) tasks early.
+    // Init creates internal tasks; the actual tailnet connect fires on the
+    // first NetworkEvent::Connected once Wi-Fi has an IP.
+    InitializeMicrolink();
+#endif
+
     // Start network asynchronously
     board.StartNetwork();
 
@@ -259,8 +270,50 @@ void Application::Run() {
     }
 }
 
+#if CONFIG_USE_MICROLINK_TAILSCALE
+void Application::InitializeMicrolink() {
+    // sabrina-integration: pull the Tailscale auth key from
+    // Settings("sabrina/tailscale_key") (provisioned via tools/provision_device.sh).
+    // microlink_init creates internal tasks but does NOT connect — we start the
+    // tailnet attempt on the first NetworkEvent::Connected (Wi-Fi up event).
+    Settings settings("sabrina", false);
+    std::string auth_key = settings.GetString("tailscale_key");
+    if (auth_key.empty()) {
+        ESP_LOGE(TAG, "MicroLink: 'sabrina/tailscale_key' not set — provision via tools/provision_device.sh");
+        return;
+    }
+
+    microlink_config_t config = {};
+    config.auth_key    = auth_key.c_str();
+    config.device_name = "aipi-lite";
+    config.enable_derp = true;
+    config.enable_disco = true;
+    config.enable_stun = true;
+    config.max_peers   = 16;
+
+    microlink_t* ml = microlink_init(&config);
+    if (ml == nullptr) {
+        ESP_LOGE(TAG, "microlink_init failed");
+        return;
+    }
+    microlink_ = ml;
+    ESP_LOGI(TAG, "MicroLink initialized; will start on first network-connected event");
+}
+#endif
+
 void Application::HandleNetworkConnectedEvent() {
     ESP_LOGI(TAG, "Network connected");
+
+#if CONFIG_USE_MICROLINK_TAILSCALE
+    // Kick MicroLink the first time Wi-Fi reports Connected. After that,
+    // MicroLink itself handles tailnet reconnects internally.
+    if (microlink_ != nullptr && !microlink_started_) {
+        ESP_LOGI(TAG, "Starting MicroLink (tailnet bring-up)");
+        microlink_start(static_cast<microlink_t*>(microlink_));
+        microlink_started_ = true;
+    }
+#endif
+
     auto state = GetDeviceState();
 
     if (state == kDeviceStateStarting || state == kDeviceStateWifiConfiguring) {

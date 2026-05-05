@@ -16,6 +16,24 @@ config USE_SABRINA_PROTOCOL
         auth from Settings("sabrina"): url, stt_url, jwt, device_key.
         Used by the AiPi-Lite hardware push-to-talk client for Sabrina.
 
+config USE_MICROLINK_TAILSCALE
+    bool "Bring up MicroLink (Tailscale ts2021) after Wi-Fi associates"
+    default n
+    help
+        When enabled, Application::Start() calls microlink_init() early
+        in boot, and microlink_start() is fired the first time the
+        network reports Connected. SabrinaProtocol::ConnectWebSocket()
+        then blocks (with timeout) on microlink_is_connected() before
+        attempting the wss:// connect — so api.sabrinainc.ai (which
+        resolves only over the tailnet) is reachable.
+
+        Reads the auth key from Settings("sabrina/tailscale_key").
+
+        Orthogonal to USE_SABRINA_PROTOCOL — leave one or both off
+        for debugging individual layers (e.g. test MicroLink alone
+        with stock xiaozhi protocol pointed at a self-hosted xiaozhi
+        server on the tailnet).
+
 choice
     prompt "Flash Assets"
     default FLASH_DEFAULT_ASSETS if !USE_EMOTE_MESSAGE_STYLE
