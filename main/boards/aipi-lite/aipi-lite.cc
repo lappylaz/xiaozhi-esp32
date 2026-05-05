@@ -45,7 +45,11 @@ class AIPILite : public WifiBoard {
     }
 
     void InitializePowerSaveTimer() {
-        power_save_timer_ = new PowerSaveTimer(-1, 60, 300);
+        // Sabrina-integration: relaxed timeouts so the screen stays on long
+        // enough for testing/observation. Stock was (60, 300) = 1 min until
+        // backlight dims, 5 min until deep-sleep. Now (1800, 7200) = 30 min
+        // / 2 hr. Revert before consumer release.
+        power_save_timer_ = new PowerSaveTimer(-1, 1800, 7200);
         power_save_timer_->OnEnterSleepMode([this]() {
             GetDisplay()->SetPowerSaveMode(true);
             GetBacklight()->SetBrightness(1);
