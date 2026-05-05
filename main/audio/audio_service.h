@@ -128,6 +128,17 @@ public:
     void SetCallbacks(AudioServiceCallbacks& callbacks);
 
     bool PushPacketToDecodeQueue(std::unique_ptr<AudioStreamPacket> packet, bool wait = false);
+
+    // Push pre-decoded PCM (16-bit signed little-endian) directly onto the
+    // playback queue, skipping the Opus decoder. Used by SabrinaProtocol,
+    // which receives raw PCM from /ws/voice?audio_format=pcm_24000 and has
+    // no need for Opus decoding. `pcm_byte_size` must be a multiple of 2;
+    // `sample_rate` must equal codec_->output_sample_rate() (no resampling
+    // is performed in this path — call PushPacketToDecodeQueue with an
+    // Opus packet at a different rate if you need resampling).
+    bool PushPcmToPlaybackQueue(const uint8_t* pcm_bytes, size_t pcm_byte_size,
+                                int sample_rate, uint32_t timestamp = 0,
+                                bool wait = false);
     std::unique_ptr<AudioStreamPacket> PopPacketFromSendQueue();
     void PlaySound(const std::string_view& sound);
     bool ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples);

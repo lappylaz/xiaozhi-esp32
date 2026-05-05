@@ -29,6 +29,7 @@ set(SOURCES "audio/audio_codec.cc"
             "protocols/protocol.cc"
             "protocols/mqtt_protocol.cc"
             "protocols/websocket_protocol.cc"
+            "protocols/sabrina_protocol.cc"
             "mcp_server.cc"
             "system_info.cc"
             "application.cc"
@@ -1000,6 +1001,8 @@ idf_component_register(SRCS ${SOURCES}
                         efuse
                         bt
                         fatfs
+                        esp_http_client    # sabrina-integration: SabrinaProtocol POSTs PCM to /api/stt
+                        esp-tls            # sabrina-integration: cert bundle for HTTPS
                         ${MAIN_PRIV_REQUIRES_EXTRA}
                     )
 

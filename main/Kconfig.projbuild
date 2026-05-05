@@ -6,6 +6,16 @@ config OTA_URL
     help
         The application will access this URL to check for new firmwares and server address.
 
+config USE_SABRINA_PROTOCOL
+    bool "Use Sabrina protocol (override OTA-driven protocol selection)"
+    default n
+    help
+        When enabled, Application::InitializeProtocol always uses
+        SabrinaProtocol instead of MqttProtocol/WebsocketProtocol. Skips
+        the activation flow against tenclass.net's server. Reads URL +
+        auth from Settings("sabrina"): url, stt_url, jwt, device_key.
+        Used by the AiPi-Lite hardware push-to-talk client for Sabrina.
+
 choice
     prompt "Flash Assets"
     default FLASH_DEFAULT_ASSETS if !USE_EMOTE_MESSAGE_STYLE

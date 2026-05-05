@@ -517,6 +517,47 @@ bool AudioService::PushPacketToDecodeQueue(std::unique_ptr<AudioStreamPacket> pa
     return true;
 }
 
+bool AudioService::PushPcmToPlaybackQueue(const uint8_t* pcm_bytes, size_t pcm_byte_size,
+                                          int sample_rate, uint32_t timestamp, bool wait) {
+    if (pcm_byte_size == 0 || (pcm_byte_size % 2) != 0) {
+        ESP_LOGW(TAG, "PushPcmToPlaybackQueue: invalid byte size %zu (must be non-zero, multiple of 2)",
+                 pcm_byte_size);
+        return false;
+    }
+    if (codec_ == nullptr) {
+        ESP_LOGE(TAG, "PushPcmToPlaybackQueue: codec is null (Initialize() not called?)");
+        return false;
+    }
+    if (sample_rate != codec_->output_sample_rate()) {
+        // No resampler in this path. Caller must match the codec rate (24000 on AiPi-Lite).
+        ESP_LOGE(TAG, "PushPcmToPlaybackQueue: sample_rate %d != codec output %d (no resampling here)",
+                 sample_rate, codec_->output_sample_rate());
+        return false;
+    }
+
+    auto task = std::make_unique<AudioTask>();
+    task->type = kAudioTaskTypeDecodeToPlaybackQueue;
+    task->timestamp = timestamp;
+    size_t sample_count = pcm_byte_size / sizeof(int16_t);
+    task->pcm.resize(sample_count);
+    memcpy(task->pcm.data(), pcm_bytes, pcm_byte_size);
+
+    std::unique_lock<std::mutex> lock(audio_queue_mutex_);
+    if (audio_playback_queue_.size() >= MAX_PLAYBACK_TASKS_IN_QUEUE) {
+        if (wait) {
+            audio_queue_cv_.wait(lock, [this]() {
+                return audio_playback_queue_.size() < MAX_PLAYBACK_TASKS_IN_QUEUE || service_stopped_;
+            });
+            if (service_stopped_) return false;
+        } else {
+            return false;
+        }
+    }
+    audio_playback_queue_.push_back(std::move(task));
+    audio_queue_cv_.notify_all();
+    return true;
+}
+
 std::unique_ptr<AudioStreamPacket> AudioService::PopPacketFromSendQueue() {
     std::lock_guard<std::mutex> lock(audio_queue_mutex_);
     if (audio_send_queue_.empty()) {

@@ -5,6 +5,7 @@
 #include "audio_codec.h"
 #include "mqtt_protocol.h"
 #include "websocket_protocol.h"
+#include "sabrina_protocol.h"
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 #include "assets.h"
@@ -446,7 +447,7 @@ void Application::CheckNewVersion() {
             break;
         }
 
-        display->SetStatus(Lang::Strings::ACTIVATION);
+        display->SetStatus("Sabrina");  // sabrina-integration: was Lang::Strings::ACTIVATION
         // Activation code is shown to the user and waiting for the user to input
         if (ota_->HasActivationCode()) {
             ShowActivationCode(ota_->GetActivationCode(), ota_->GetActivationMessage());
@@ -477,6 +478,12 @@ void Application::InitializeProtocol() {
 
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
+#if CONFIG_USE_SABRINA_PROTOCOL
+    // sabrina-integration: bypass OTA-driven protocol selection. Always use
+    // SabrinaProtocol; skip the tenclass.net activation flow entirely.
+    ESP_LOGI(TAG, "Using SabrinaProtocol (CONFIG_USE_SABRINA_PROTOCOL=y)");
+    protocol_ = std::make_unique<SabrinaProtocol>();
+#else
     if (ota_->HasMqttConfig()) {
         protocol_ = std::make_unique<MqttProtocol>();
     } else if (ota_->HasWebsocketConfig()) {
@@ -485,6 +492,7 @@ void Application::InitializeProtocol() {
         ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
         protocol_ = std::make_unique<MqttProtocol>();
     }
+#endif
 
     protocol_->OnConnected([this]() {
         DismissAlert();
@@ -653,7 +661,7 @@ void Application::Alert(const char* status, const char* message, const char* emo
 void Application::DismissAlert() {
     if (GetDeviceState() == kDeviceStateIdle) {
         auto display = Board::GetInstance().GetDisplay();
-        display->SetStatus(Lang::Strings::STANDBY);
+        display->SetStatus("Sabrina");  // sabrina-integration: was Lang::Strings::STANDBY
         display->SetEmotion("neutral");
         display->SetChatMessage("system", "");
     }
@@ -861,7 +869,7 @@ void Application::HandleStateChangedEvent() {
     switch (new_state) {
         case kDeviceStateUnknown:
         case kDeviceStateIdle:
-            display->SetStatus(Lang::Strings::STANDBY);
+            display->SetStatus("Sabrina");  // sabrina-integration: was Lang::Strings::STANDBY
             display->ClearChatMessages();  // Clear messages first
             display->SetEmotion("neutral"); // Then set emotion (wechat mode checks child count)
             audio_service_.EnableVoiceProcessing(false);
