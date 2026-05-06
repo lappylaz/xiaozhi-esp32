@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <utility>
 #include <font_awesome.h>
 #include <esp_log.h>
 #include <esp_err.h>
@@ -58,34 +59,34 @@ void LcdDisplay::InitializeLcdThemes() {
     dark_theme->set_icon_font(icon_font);
     dark_theme->set_large_icon_font(large_icon_font);
 
-    // sabrina-integration: register the Sabrina Tamagotchi sprite set as
-    // the default emoji collection on both themes. Maps xiaozhi's emotion
-    // names to one of our 6 sprites. "neutral" is intentionally bound to
-    // the walk_left frame as a starting point — the walk-cycle timer in
-    // SetupUI will animate it between walk_left/walk_right while the
-    // emotion stays "neutral".
+    // sabrina-integration: register the Chibilunatchi-inspired Sabrina
+    // sprite set as the emoji collection on both themes. Each emotion
+    // binds to ONE primary sprite here; the walk-cycle timer in SetupUI
+    // animates between paired frames at runtime via SpriteForEmotion()
+    // (in lcd_display.h) — that way every emotion gets a 2-frame cycle.
     auto sabrina_emoji = std::make_shared<EmojiCollection>();
-    sabrina_emoji->AddEmoji("neutral",      new LvglSourceImage(&sabrina_walk_left));
-    sabrina_emoji->AddEmoji("happy",        new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("laughing",     new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("funny",        new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("loving",       new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("cool",         new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("delicious",    new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("kissy",        new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("winking",      new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("silly",        new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("confident",    new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("embarrassed",  new LvglSourceImage(&sabrina_happy));
-    sabrina_emoji->AddEmoji("relaxed",      new LvglSourceImage(&sabrina_idle_open));
-    sabrina_emoji->AddEmoji("surprised",    new LvglSourceImage(&sabrina_idle_open));
-    sabrina_emoji->AddEmoji("shocked",      new LvglSourceImage(&sabrina_idle_open));
-    sabrina_emoji->AddEmoji("sleepy",       new LvglSourceImage(&sabrina_sleep));
-    sabrina_emoji->AddEmoji("thinking",     new LvglSourceImage(&sabrina_idle_blink));
-    sabrina_emoji->AddEmoji("confused",     new LvglSourceImage(&sabrina_idle_blink));
-    sabrina_emoji->AddEmoji("sad",          new LvglSourceImage(&sabrina_idle_blink));
-    sabrina_emoji->AddEmoji("crying",       new LvglSourceImage(&sabrina_idle_blink));
-    sabrina_emoji->AddEmoji("angry",        new LvglSourceImage(&sabrina_idle_blink));
+    sabrina_emoji->AddEmoji("neutral",      new LvglSourceImage(&sabrina_walk_a));
+    sabrina_emoji->AddEmoji("happy",        new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("laughing",     new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("funny",        new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("loving",       new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("cool",         new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("delicious",    new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("kissy",        new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("winking",      new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("silly",        new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("confident",    new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("embarrassed",  new LvglSourceImage(&sabrina_happy_a));
+    sabrina_emoji->AddEmoji("relaxed",      new LvglSourceImage(&sabrina_idle_a));
+    sabrina_emoji->AddEmoji("surprised",    new LvglSourceImage(&sabrina_idle_a));
+    sabrina_emoji->AddEmoji("shocked",      new LvglSourceImage(&sabrina_idle_a));
+    sabrina_emoji->AddEmoji("sleepy",       new LvglSourceImage(&sabrina_sleep_a));
+    sabrina_emoji->AddEmoji("thinking",     new LvglSourceImage(&sabrina_idle_a));
+    sabrina_emoji->AddEmoji("confused",     new LvglSourceImage(&sabrina_blink));
+    sabrina_emoji->AddEmoji("sad",          new LvglSourceImage(&sabrina_blink));
+    sabrina_emoji->AddEmoji("crying",       new LvglSourceImage(&sabrina_blink));
+    sabrina_emoji->AddEmoji("angry",        new LvglSourceImage(&sabrina_blink));
+    sabrina_emoji->AddEmoji("speaking",     new LvglSourceImage(&sabrina_talk_a));
     light_theme->set_emoji_collection(sabrina_emoji);
     dark_theme->set_emoji_collection(sabrina_emoji);
 
@@ -1037,14 +1038,56 @@ void LcdDisplay::SetupUI() {
         400, this);
 }
 
+// Map an emotion name to its (frame_a, frame_b) animation pair. The
+// walk-cycle timer toggles between these every tick so every emotion
+// gets a continuous 2-frame animation. Frames may be the same pointer
+// for emotions that intentionally don't animate (e.g. blink-only sad).
+static std::pair<const lv_image_dsc_t*, const lv_image_dsc_t*>
+SpriteFramesForEmotion(const std::string& e) {
+    if (e == "neutral")          return {&sabrina_walk_a,  &sabrina_walk_b};
+    if (e == "happy"     ||
+        e == "laughing"  ||
+        e == "funny"     ||
+        e == "loving"    ||
+        e == "cool"      ||
+        e == "delicious" ||
+        e == "kissy"     ||
+        e == "winking"   ||
+        e == "silly"     ||
+        e == "confident" ||
+        e == "embarrassed")      return {&sabrina_happy_a, &sabrina_happy_b};
+    if (e == "relaxed"   ||
+        e == "surprised" ||
+        e == "shocked"   ||
+        e == "thinking")         return {&sabrina_idle_a,  &sabrina_idle_b};
+    if (e == "sleepy")           return {&sabrina_sleep_a, &sabrina_sleep_b};
+    if (e == "confused"  ||
+        e == "sad"       ||
+        e == "crying"    ||
+        e == "angry")            return {&sabrina_blink,   &sabrina_idle_a};
+    if (e == "speaking")         return {&sabrina_talk_a,  &sabrina_talk_b};
+    // Default: walk cycle (covers empty / unknown)
+    return {&sabrina_walk_a, &sabrina_walk_b};
+}
+
 void LcdDisplay::TickWalkAnimation() {
     if (emoji_image_ == nullptr) return;
     if (gif_controller_) return;             // GIF handler is in charge
-    if (current_emotion_ != "neutral") return;  // freeze on static sprite
 
+    // Occasional blink while in idle/walking state — every ~16 ticks
+    // (~6.4 s at 400 ms tick) flick to the blink frame for one tick.
     walk_frame_left_ = !walk_frame_left_;
-    const lv_image_dsc_t* sprite =
-        walk_frame_left_ ? &sabrina_walk_left : &sabrina_walk_right;
+
+    auto [a, b] = SpriteFramesForEmotion(current_emotion_);
+    const lv_image_dsc_t* sprite = walk_frame_left_ ? a : b;
+
+    // Sprinkle a blink into the neutral cycle every ~16 ticks for life.
+    static int tick_counter = 0;
+    if (++tick_counter >= 16) tick_counter = 0;
+    if (tick_counter == 0 &&
+        (current_emotion_ == "neutral" || current_emotion_.empty())) {
+        sprite = &sabrina_blink;
+    }
 
     DisplayLockGuard lock(this);
     lv_image_set_src(emoji_image_, sprite);

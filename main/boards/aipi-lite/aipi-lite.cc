@@ -168,11 +168,12 @@ class AIPILite : public WifiBoard {
         power_button_.OnClick([this]() {
             power_save_timer_->WakeUp();
             static const char* kEmotions[] = {
-                "neutral",   // → walk_left/walk_right (animated)
-                "happy",     // → happy sprite
-                "sleepy",    // → sleep sprite
-                "thinking",  // → idle_blink sprite
-                "relaxed",   // → idle_open sprite
+                "neutral",   // → walk_a/walk_b cycle (legs alternating)
+                "happy",     // → happy_a/happy_b cycle (squint + hop)
+                "speaking",  // → talk_a/talk_b cycle (mouth open/close)
+                "sleepy",    // → sleep_a/sleep_b cycle (Z fade)
+                "relaxed",   // → idle_a/idle_b cycle (subtle bob)
+                "sad",       // → blink frame
             };
             static size_t idx = 0;
             idx = (idx + 1) % (sizeof(kEmotions) / sizeof(kEmotions[0]));
