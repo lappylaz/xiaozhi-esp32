@@ -21,15 +21,25 @@ SCALE = 8  # preview scale factor
 
 # Character palette (RGB tuples). Background pixels (BG) get alpha=0;
 # everything else gets alpha=255 for crisp edges.
+#
+# Inspired by Chibilunatchi (Tamagotchi fanon): pink body with cat ears
+# + lopped rabbit ears, red eyes, blue dress with bow, red stockings.
 BG      = (0,   0,   0)        # transparent
-BODY    = (255, 175, 210)      # light pink
-BODY_D  = (210, 130, 170)      # darker pink (shading)
+BODY    = (255, 175, 210)      # light pink (head + ears)
+BODY_D  = (210, 130, 170)      # darker pink shading
 OUTLINE = (90,  40,  80)       # dark purple-brown outline
 WHITE   = (255, 255, 255)
 BLACK   = (10,  10,  20)
 BLUSH   = (255, 110, 160)
-HAIR    = (255, 100, 150)      # bow + hair tuft
-HAIR_D  = (200, 60,  110)
+HAIR    = (255, 100, 150)      # forehead tuft + bow
+HAIR_D  = (200, 60,  110)      # darker pink accents
+EYE_R   = (220, 40,  70)       # red eyes
+EYE_R_D = (140, 20,  40)       # red eye outline / inner shading
+DRESS   = (110, 160, 220)      # mother's blue dress
+DRESS_D = (60,  100, 170)      # dress shading / fold
+STOCK   = (210, 50,  60)       # red stockings
+STOCK_D = (140, 30,  40)       # stocking shading
+HEART   = (240, 60,  100)      # heart center on the bow
 ZZZ     = (160, 200, 255)      # light blue for sleep Z
 
 
@@ -40,106 +50,130 @@ def new_canvas():
 # ----- Drawing helpers -----------------------------------------------------
 
 def draw_body_base(d, hair_offset_y=0):
-    """Head + flared skirt-body + pigtails + bow.
+    """Chibilunatchi-style: pink head with cat ears (top) + lopped rabbit
+    ears (sides hanging down), forehead tuft, blue dress, red stockings,
+    bow with heart center.
 
     Layout (32x32):
-      y 1-6   : bow
+      y 0-3   : cat ears (small triangles on top of head)
+      y 1-7   : bow (between/over the cat ears)
       y 4-15  : head circle
-      y 6-19  : pigtails (sides)
-      y 14-26 : skirt-shaped body, flared at bottom
-      y 25-28 : feet (drawn separately by draw_feet)
+      y 6-22  : lopped rabbit ears (sides, hanging + folded)
+      y 7-9   : forehead tuft
+      y 14-25 : blue dress (flared)
+      y 25-29 : red stockings + feet
     """
-    # 1) Pigtails (drawn first so head overlaps their inside edges)
-    # Left pigtail: vertical oblong, darker tip at bottom
-    d.ellipse([1,  7,  7,  19], fill=HAIR,   outline=OUTLINE)
-    d.ellipse([1,  15, 6,  19], fill=HAIR_D, outline=OUTLINE)
-    # Right pigtail
-    d.ellipse([24, 7,  30, 19], fill=HAIR,   outline=OUTLINE)
-    d.ellipse([25, 15, 30, 19], fill=HAIR_D, outline=OUTLINE)
-    # Hair-tie band where pigtails meet head (small darker accent)
-    d.line([(5, 8),  (7, 8)],   fill=HAIR_D)
-    d.line([(24, 8), (26, 8)],  fill=HAIR_D)
+    # 1) Cat ears (small triangles — drawn first so bow overlaps inner edges)
+    # Left cat ear
+    d.polygon([(7, 5), (12, 5), (10, 0)], fill=BODY, outline=OUTLINE)
+    d.point((10, 3), fill=HAIR)  # inner ear pink
+    # Right cat ear
+    d.polygon([(19, 5), (24, 5), (21, 0)], fill=BODY, outline=OUTLINE)
+    d.point((21, 3), fill=HAIR)
 
-    # 2) Skirt — flared trapezoid below the head (drawn before head so the
-    # head overlaps the top edge cleanly).
-    skirt_poly = [(10, 14), (21, 14), (26, 25), (5, 25)]
-    d.polygon(skirt_poly, fill=BODY_D, outline=OUTLINE)
-    # Skirt vertical fold highlights
-    d.line([(13, 16), (10, 25)], fill=BODY)
-    d.line([(16, 16), (16, 25)], fill=BODY)
-    d.line([(18, 16), (21, 25)], fill=BODY)
+    # 2) Lopped rabbit ears (long pink shapes hanging on each side, with
+    # a fold/lop near the bottom suggesting floppy ears)
+    # Left rabbit ear: top straight, bottom folds outward
+    d.ellipse([1,  6,  5,  14], fill=BODY,   outline=OUTLINE)   # top
+    d.ellipse([0,  12, 6,  20], fill=BODY,   outline=OUTLINE)   # lopped tip
+    d.point((3, 9),  fill=HAIR)   # inner ear shading top
+    d.point((3, 16), fill=HAIR_D) # inner ear shading tip
+    # Right rabbit ear
+    d.ellipse([26, 6,  30, 14], fill=BODY,   outline=OUTLINE)
+    d.ellipse([25, 12, 31, 20], fill=BODY,   outline=OUTLINE)
+    d.point((28, 9),  fill=HAIR)
+    d.point((28, 16), fill=HAIR_D)
 
-    # 3) Head — round, sits on top of the skirt
+    # 3) Blue dress — flared trapezoid below the head
+    dress_poly = [(10, 14), (21, 14), (26, 25), (5, 25)]
+    d.polygon(dress_poly, fill=DRESS, outline=OUTLINE)
+    # Dress fold highlights
+    d.line([(13, 16), (10, 25)], fill=DRESS_D)
+    d.line([(16, 16), (16, 25)], fill=DRESS_D)
+    d.line([(18, 16), (21, 25)], fill=DRESS_D)
+    # Dress collar accent (small bow detail near neck)
+    d.point((15, 14), fill=HEART)
+    d.point((16, 14), fill=HEART)
+
+    # 4) Head — sits on top of the dress
     d.ellipse([8, 4, 23, 16], fill=BODY, outline=OUTLINE)
-    # Light shading on lower right of head
+    # Lower-right shading
     d.ellipse([16, 11, 22, 15], fill=BODY_D, outline=None)
     d.ellipse([8, 4, 23, 16], fill=None, outline=OUTLINE)
 
-    # 4) Bow on top of head
+    # 5) Forehead tuft (signature feature inherited from her father —
+    # small pink hair points just above the eyes).
+    d.polygon([(12, 6), (15, 6), (14, 9), (13, 8)], fill=HAIR,   outline=OUTLINE)
+    d.polygon([(16, 6), (19, 6), (18, 9), (17, 8)], fill=HAIR_D, outline=OUTLINE)
+
+    # 6) Bow on top of head with heart center
     by = 1 + hair_offset_y
     d.ellipse([10, by,     14, by + 5], fill=HAIR,   outline=OUTLINE)
     d.ellipse([17, by,     21, by + 5], fill=HAIR,   outline=OUTLINE)
     d.rectangle([(14, by + 1), (17, by + 4)], fill=HAIR_D, outline=OUTLINE)
-    # Tiny heart sparkle in bow center
-    d.point((15, by + 2), fill=WHITE)
-    d.point((16, by + 2), fill=WHITE)
-    d.point((15, by + 3), fill=WHITE)
+    # Heart in center of bow (5-pixel approximation)
+    d.point((15, by + 2), fill=HEART)
+    d.point((16, by + 2), fill=HEART)
+    d.point((15, by + 3), fill=HEART)
+    d.point((16, by + 3), fill=HEART)
+    d.point((15, by + 4), fill=HEART)
+    # Decorative ribbon dangles below the bow
+    d.line([(13, by + 5), (12, by + 7)], fill=HAIR_D)
+    d.line([(18, by + 5), (19, by + 7)], fill=HAIR_D)
 
 
 def draw_eyelashes(d):
-    """Outer-corner lashes — small tick marks above outer eye edges."""
-    # Left eye outer corner (on the LEFT side of left eye)
-    d.point((9,  10), fill=BLACK)
-    d.point((10, 10), fill=BLACK)
-    # Right eye outer corner (on the RIGHT side of right eye)
-    d.point((22, 10), fill=BLACK)
-    d.point((21, 10), fill=BLACK)
+    """Outer-corner lashes — small tick marks above outer eye corners."""
+    d.point((9,  9),  fill=BLACK)
+    d.point((10, 9),  fill=BLACK)
+    d.point((22, 9),  fill=BLACK)
+    d.point((21, 9),  fill=BLACK)
 
 
 def draw_eyes_open(d):
-    """Big anime-style eyes (positioned within head y=4..16)."""
-    # Whites
-    d.ellipse([10,  8, 13, 12], fill=WHITE, outline=BLACK)
-    d.ellipse([18,  8, 21, 12], fill=WHITE, outline=BLACK)
-    # Pupils
-    d.ellipse([11,  9, 12, 11], fill=BLACK, outline=None)
-    d.ellipse([19,  9, 20, 11], fill=BLACK, outline=None)
+    """Big red eyes (Chibilunatchi signature) — fits within head y=4..16."""
+    # Eye whites
+    d.ellipse([10, 10, 13, 13], fill=WHITE, outline=BLACK)
+    d.ellipse([18, 10, 21, 13], fill=WHITE, outline=BLACK)
+    # Red iris/pupil
+    d.ellipse([11, 11, 12, 12], fill=EYE_R,  outline=EYE_R_D)
+    d.ellipse([19, 11, 20, 12], fill=EYE_R,  outline=EYE_R_D)
     # Highlight sparkles
-    d.point((12,  9), fill=WHITE)
-    d.point((20,  9), fill=WHITE)
+    d.point((12, 11), fill=WHITE)
+    d.point((20, 11), fill=WHITE)
     draw_eyelashes(d)
 
 
 def draw_eyes_closed_blink(d):
     """Eyes closed flat — blinking."""
-    d.line([(10, 10), (13, 10)], fill=BLACK)
-    d.line([(18, 10), (21, 10)], fill=BLACK)
+    d.line([(10, 11), (13, 11)], fill=BLACK)
+    d.line([(18, 11), (21, 11)], fill=BLACK)
     draw_eyelashes(d)
 
 
 def draw_eyes_squint_happy(d):
     """Eyes ^ ^ — happy squint."""
-    d.line([(10, 11), (11,  9)], fill=BLACK)
-    d.line([(11,  9), (13, 11)], fill=BLACK)
-    d.line([(18, 11), (19,  9)], fill=BLACK)
-    d.line([(19,  9), (21, 11)], fill=BLACK)
+    d.line([(10, 12), (11, 10)], fill=BLACK)
+    d.line([(11, 10), (13, 12)], fill=BLACK)
+    d.line([(18, 12), (19, 10)], fill=BLACK)
+    d.line([(19, 10), (21, 12)], fill=BLACK)
     draw_eyelashes(d)
 
 
 def draw_eyes_sleep(d):
     """Eyes closed downward curve — sleeping."""
     for x_off in (10, 18):
-        d.line([(x_off, 10), (x_off + 1, 11), (x_off + 2, 11), (x_off + 3, 10)], fill=BLACK)
+        d.line([(x_off, 11), (x_off + 1, 12), (x_off + 2, 12), (x_off + 3, 11)], fill=BLACK)
 
 
 def draw_smile(d):
     """Small upward smile, fits inside the head."""
-    d.line([(13, 13), (14, 14), (17, 14), (18, 13)], fill=OUTLINE)
+    d.line([(13, 14), (14, 15), (17, 15), (18, 14)], fill=OUTLINE)
 
 
 def draw_big_smile(d):
-    """Bigger open smile."""
-    d.line([(12, 13), (13, 15), (18, 15), (19, 13)], fill=OUTLINE)
+    """Bigger open smile (no overflow into dress)."""
+    d.line([(12, 14), (13, 15), (18, 15), (19, 14)], fill=OUTLINE)
     d.line([(13, 15), (18, 15)], fill=OUTLINE)
 
 
@@ -153,16 +187,22 @@ def draw_yawn(d):
 
 def draw_blush(d):
     """Pink cheeks just below the eyes."""
-    d.point((9,  12), fill=BLUSH)
-    d.point((22, 12), fill=BLUSH)
     d.point((9,  13), fill=BLUSH)
     d.point((22, 13), fill=BLUSH)
+    d.point((9,  14), fill=BLUSH)
+    d.point((22, 14), fill=BLUSH)
 
 
 def draw_feet(d, left_y=0, right_y=0):
-    """Two feet poking below the skirt."""
-    d.rectangle([(11, 26 - left_y),  (13, 28 - left_y)],  fill=OUTLINE)
-    d.rectangle([(18, 26 - right_y), (20, 28 - right_y)], fill=OUTLINE)
+    """Red stockings + dark shoes — Chibilunatchi's signature legwear."""
+    # Left leg (stocking + shoe)
+    ly = 26 - left_y
+    d.rectangle([(11, ly), (13, ly + 2)], fill=STOCK,   outline=STOCK_D)
+    d.point((12, ly + 3), fill=OUTLINE)  # shoe peeks below
+    # Right leg
+    ry = 26 - right_y
+    d.rectangle([(18, ry), (20, ry + 2)], fill=STOCK,   outline=STOCK_D)
+    d.point((19, ry + 3), fill=OUTLINE)
 
 
 def draw_z_floating(d):
