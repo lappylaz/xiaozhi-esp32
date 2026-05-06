@@ -29,3 +29,16 @@ CONFIG_USB_HOST_CONTROL_TRANSFER_MAX_SIZE=1536
 
 # LVGL Graphics
 CONFIG_LV_USE_SNAPSHOT=y
+
+# Sabrina-integration: lock this fork to aipi-lite + Sabrina protocol +
+# MicroLink (Tailscale ts2021). Avoids the trap of menuconfig defaulting
+# to BREAD_COMPACT_WIFI which compiles the wrong display/button drivers.
+CONFIG_BOARD_TYPE_AIPI_LITE=y
+CONFIG_USE_SABRINA_PROTOCOL=y
+CONFIG_USE_MICROLINK_TAILSCALE=y
+
+# MicroLink ts2021 crypto requirements (ChaCha20-Poly1305 AEAD + HKDF)
+CONFIG_MBEDTLS_CHACHA20_C=y
+CONFIG_MBEDTLS_CHACHAPOLY_C=y
+CONFIG_MBEDTLS_POLY1305_C=y
+CONFIG_MBEDTLS_HKDF_C=y
