@@ -161,7 +161,27 @@ class AIPILite : public WifiBoard {
             EnterWifiConfigMode();
         });
 
-        power_button_.OnClick([this]() { power_save_timer_->WakeUp(); });
+        // sabrina-integration debug: short-press POWER cycles through the
+        // mapped emotions so we can preview every Sabrina sprite without
+        // a working WS link. Remove or hide behind a Kconfig before
+        // consumer release.
+        power_button_.OnClick([this]() {
+            power_save_timer_->WakeUp();
+            static const char* kEmotions[] = {
+                "neutral",   // → walk_left/walk_right (animated)
+                "happy",     // → happy sprite
+                "sleepy",    // → sleep sprite
+                "thinking",  // → idle_blink sprite
+                "relaxed",   // → idle_open sprite
+            };
+            static size_t idx = 0;
+            idx = (idx + 1) % (sizeof(kEmotions) / sizeof(kEmotions[0]));
+            auto display = GetDisplay();
+            if (display) {
+                ESP_LOGI(TAG, "Debug: cycling emotion -> '%s'", kEmotions[idx]);
+                display->SetEmotion(kEmotions[idx]);
+            }
+        });
         power_button_.OnLongPress([this]() {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() != kDeviceStateStarting &&
