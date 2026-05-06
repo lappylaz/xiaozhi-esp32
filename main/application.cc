@@ -78,6 +78,29 @@ void Application::Initialize() {
     audio_service_.Initialize(codec);
     audio_service_.Start();
 
+    // sabrina-integration: speaker self-test on boot. Remove after
+    // audio path is verified end-to-end. Plays a 350ms 440Hz square
+    // wave through the I2S/ES8311/PA chain. If you don't hear a beep
+    // ~3-5s after boot, the issue is between codec_dev_open and the
+    // physical speaker.
+    {
+        ESP_LOGI(TAG, "Speaker self-test: 350ms 440Hz square wave");
+        codec->SetOutputVolume(80);
+        codec->EnableOutput(true);
+        vTaskDelay(pdMS_TO_TICKS(100));  // let codec_dev open + PA settle
+        constexpr int kRate = 24000;
+        constexpr int kFreq = 440;
+        constexpr int kDurMs = 350;
+        std::vector<int16_t> tone((kRate * kDurMs) / 1000);
+        const int half_period = kRate / (2 * kFreq);
+        for (size_t i = 0; i < tone.size(); ++i) {
+            tone[i] = ((i / half_period) & 1) ? 12000 : -12000;
+        }
+        codec->OutputData(tone);
+        vTaskDelay(pdMS_TO_TICKS(100));  // let DMA flush
+        ESP_LOGI(TAG, "Speaker self-test: done");
+    }
+
     AudioServiceCallbacks callbacks;
     callbacks.on_send_queue_available = [this]() {
         xEventGroupSetBits(event_group_, MAIN_EVENT_SEND_AUDIO);
