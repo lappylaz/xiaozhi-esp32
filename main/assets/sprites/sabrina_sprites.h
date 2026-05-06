@@ -107,12 +107,14 @@ static const uint8_t sabrina_idle_open_map[] = {
 };
 
 const lv_image_dsc_t sabrina_idle_open = {
-    .header.magic = LV_IMAGE_HEADER_MAGIC,
-    .header.cf = LV_COLOR_FORMAT_RGB565A8,
-    .header.flags = 0,
-    .header.w = 32,
-    .header.h = 32,
-    .header.stride = 64,
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565A8,
+        .flags = 0,
+        .w = 32,
+        .h = 32,
+        .stride = 64,
+    },
     .data_size = sizeof(sabrina_idle_open_map),
     .data = sabrina_idle_open_map,
 };
@@ -217,12 +219,14 @@ static const uint8_t sabrina_idle_blink_map[] = {
 };
 
 const lv_image_dsc_t sabrina_idle_blink = {
-    .header.magic = LV_IMAGE_HEADER_MAGIC,
-    .header.cf = LV_COLOR_FORMAT_RGB565A8,
-    .header.flags = 0,
-    .header.w = 32,
-    .header.h = 32,
-    .header.stride = 64,
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565A8,
+        .flags = 0,
+        .w = 32,
+        .h = 32,
+        .stride = 64,
+    },
     .data_size = sizeof(sabrina_idle_blink_map),
     .data = sabrina_idle_blink_map,
 };
@@ -327,12 +331,14 @@ static const uint8_t sabrina_walk_left_map[] = {
 };
 
 const lv_image_dsc_t sabrina_walk_left = {
-    .header.magic = LV_IMAGE_HEADER_MAGIC,
-    .header.cf = LV_COLOR_FORMAT_RGB565A8,
-    .header.flags = 0,
-    .header.w = 32,
-    .header.h = 32,
-    .header.stride = 64,
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565A8,
+        .flags = 0,
+        .w = 32,
+        .h = 32,
+        .stride = 64,
+    },
     .data_size = sizeof(sabrina_walk_left_map),
     .data = sabrina_walk_left_map,
 };
@@ -437,12 +443,14 @@ static const uint8_t sabrina_walk_right_map[] = {
 };
 
 const lv_image_dsc_t sabrina_walk_right = {
-    .header.magic = LV_IMAGE_HEADER_MAGIC,
-    .header.cf = LV_COLOR_FORMAT_RGB565A8,
-    .header.flags = 0,
-    .header.w = 32,
-    .header.h = 32,
-    .header.stride = 64,
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565A8,
+        .flags = 0,
+        .w = 32,
+        .h = 32,
+        .stride = 64,
+    },
     .data_size = sizeof(sabrina_walk_right_map),
     .data = sabrina_walk_right_map,
 };
@@ -547,12 +555,14 @@ static const uint8_t sabrina_happy_map[] = {
 };
 
 const lv_image_dsc_t sabrina_happy = {
-    .header.magic = LV_IMAGE_HEADER_MAGIC,
-    .header.cf = LV_COLOR_FORMAT_RGB565A8,
-    .header.flags = 0,
-    .header.w = 32,
-    .header.h = 32,
-    .header.stride = 64,
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565A8,
+        .flags = 0,
+        .w = 32,
+        .h = 32,
+        .stride = 64,
+    },
     .data_size = sizeof(sabrina_happy_map),
     .data = sabrina_happy_map,
 };
@@ -657,12 +667,14 @@ static const uint8_t sabrina_sleep_map[] = {
 };
 
 const lv_image_dsc_t sabrina_sleep = {
-    .header.magic = LV_IMAGE_HEADER_MAGIC,
-    .header.cf = LV_COLOR_FORMAT_RGB565A8,
-    .header.flags = 0,
-    .header.w = 32,
-    .header.h = 32,
-    .header.stride = 64,
+    .header = {
+        .magic = LV_IMAGE_HEADER_MAGIC,
+        .cf = LV_COLOR_FORMAT_RGB565A8,
+        .flags = 0,
+        .w = 32,
+        .h = 32,
+        .stride = 64,
+    },
     .data_size = sizeof(sabrina_sleep_map),
     .data = sabrina_sleep_map,
 };

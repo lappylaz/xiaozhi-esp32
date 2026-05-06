@@ -232,6 +232,9 @@ def img_to_rgb565a8_bytes(img):
 
 
 def emit_c_array(name, data):
+    """Emit a `static const uint8_t name_map[]` array + a `const
+    lv_image_dsc_t name` descriptor. Uses C++-compatible aggregate
+    initializer (nested designated initializers don't work in C++)."""
     lines = [f"static const uint8_t {name}_map[] = {{"]
     for i in range(0, len(data), 32):
         chunk = data[i:i + 32]
@@ -239,12 +242,14 @@ def emit_c_array(name, data):
     lines.append("};")
     lines.append("")
     lines.append(f"const lv_image_dsc_t {name} = {{")
-    lines.append("    .header.magic = LV_IMAGE_HEADER_MAGIC,")
-    lines.append("    .header.cf = LV_COLOR_FORMAT_RGB565A8,")
-    lines.append("    .header.flags = 0,")
-    lines.append(f"    .header.w = {W},")
-    lines.append(f"    .header.h = {H},")
-    lines.append(f"    .header.stride = {W * 2},")
+    lines.append("    .header = {")
+    lines.append("        .magic = LV_IMAGE_HEADER_MAGIC,")
+    lines.append("        .cf = LV_COLOR_FORMAT_RGB565A8,")
+    lines.append("        .flags = 0,")
+    lines.append(f"        .w = {W},")
+    lines.append(f"        .h = {H},")
+    lines.append(f"        .stride = {W * 2},")
+    lines.append("    },")
     lines.append(f"    .data_size = sizeof({name}_map),")
     lines.append(f"    .data = {name}_map,")
     lines.append("};")

@@ -3,6 +3,7 @@
 #include "settings.h"
 #include "lvgl_theme.h"
 #include "assets/lang_config.h"
+#include "assets/sprites/sabrina_sprites.h"
 
 #include <vector>
 #include <algorithm>
@@ -56,6 +57,37 @@ void LcdDisplay::InitializeLcdThemes() {
     dark_theme->set_text_font(text_font);
     dark_theme->set_icon_font(icon_font);
     dark_theme->set_large_icon_font(large_icon_font);
+
+    // sabrina-integration: register the Sabrina Tamagotchi sprite set as
+    // the default emoji collection on both themes. Maps xiaozhi's emotion
+    // names to one of our 6 sprites. "neutral" is intentionally bound to
+    // the walk_left frame as a starting point — the walk-cycle timer in
+    // SetupUI will animate it between walk_left/walk_right while the
+    // emotion stays "neutral".
+    auto sabrina_emoji = std::make_shared<EmojiCollection>();
+    sabrina_emoji->AddEmoji("neutral",      new LvglSourceImage(&sabrina_walk_left));
+    sabrina_emoji->AddEmoji("happy",        new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("laughing",     new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("funny",        new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("loving",       new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("cool",         new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("delicious",    new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("kissy",        new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("winking",      new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("silly",        new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("confident",    new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("embarrassed",  new LvglSourceImage(&sabrina_happy));
+    sabrina_emoji->AddEmoji("relaxed",      new LvglSourceImage(&sabrina_idle_open));
+    sabrina_emoji->AddEmoji("surprised",    new LvglSourceImage(&sabrina_idle_open));
+    sabrina_emoji->AddEmoji("shocked",      new LvglSourceImage(&sabrina_idle_open));
+    sabrina_emoji->AddEmoji("sleepy",       new LvglSourceImage(&sabrina_sleep));
+    sabrina_emoji->AddEmoji("thinking",     new LvglSourceImage(&sabrina_idle_blink));
+    sabrina_emoji->AddEmoji("confused",     new LvglSourceImage(&sabrina_idle_blink));
+    sabrina_emoji->AddEmoji("sad",          new LvglSourceImage(&sabrina_idle_blink));
+    sabrina_emoji->AddEmoji("crying",       new LvglSourceImage(&sabrina_idle_blink));
+    sabrina_emoji->AddEmoji("angry",        new LvglSourceImage(&sabrina_idle_blink));
+    light_theme->set_emoji_collection(sabrina_emoji);
+    dark_theme->set_emoji_collection(sabrina_emoji);
 
     auto& theme_manager = LvglThemeManager::GetInstance();
     theme_manager.RegisterTheme("light", light_theme);
@@ -992,6 +1024,34 @@ void LcdDisplay::SetupUI() {
     lv_obj_set_style_text_color(low_battery_label_, lv_color_white(), 0);
     lv_obj_center(low_battery_label_);
     lv_obj_add_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
+
+    // sabrina-integration: kick off the Tamagotchi walk-cycle timer.
+    // Fires every 400 ms; while current_emotion_ == "neutral" it swaps
+    // emoji_image_ between sabrina_walk_left and sabrina_walk_right.
+    // Other emotions freeze on their static sprite (set by SetEmotion).
+    walk_timer_ = lv_timer_create(
+        [](lv_timer_t* t) {
+            auto* self = static_cast<LcdDisplay*>(lv_timer_get_user_data(t));
+            self->TickWalkAnimation();
+        },
+        400, this);
+}
+
+void LcdDisplay::TickWalkAnimation() {
+    if (emoji_image_ == nullptr) return;
+    if (gif_controller_) return;             // GIF handler is in charge
+    if (current_emotion_ != "neutral") return;  // freeze on static sprite
+
+    walk_frame_left_ = !walk_frame_left_;
+    const lv_image_dsc_t* sprite =
+        walk_frame_left_ ? &sabrina_walk_left : &sabrina_walk_right;
+
+    DisplayLockGuard lock(this);
+    lv_image_set_src(emoji_image_, sprite);
+    lv_obj_remove_flag(emoji_image_, LV_OBJ_FLAG_HIDDEN);
+    if (emoji_label_ != nullptr) {
+        lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 void LcdDisplay::SetPreviewImage(std::unique_ptr<LvglImage> image) {
@@ -1072,6 +1132,11 @@ void LcdDisplay::ClearChatMessages() {
 #endif
 
 void LcdDisplay::SetEmotion(const char* emotion) {
+    // sabrina-integration: remember the active emotion so the walk-cycle
+    // timer can decide whether to keep animating ("neutral") or freeze on
+    // the static sprite that matches this emotion.
+    current_emotion_ = emotion ? emotion : "";
+
     if (!setup_ui_called_) {
         ESP_LOGW(TAG, "SetEmotion('%s') called before SetupUI() - emotion will not be displayed!", emotion);
     }

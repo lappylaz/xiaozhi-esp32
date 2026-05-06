@@ -10,6 +10,7 @@
 
 #include <atomic>
 #include <memory>
+#include <string>
 
 #define PREVIEW_IMAGE_DURATION_MS 5000
 
@@ -35,6 +36,15 @@ protected:
     esp_timer_handle_t preview_timer_ = nullptr;
     std::unique_ptr<LvglImage> preview_image_cached_ = nullptr;
     bool hide_subtitle_ = false;  // Control whether to hide chat messages/subtitles
+
+    // sabrina-integration: walk-cycle animation state. Timer fires every
+    // 400 ms; when current_emotion_ == "neutral" it swaps the emoji_image_
+    // sprite between sabrina_walk_left and sabrina_walk_right to animate
+    // the Tamagotchi character. Other emotions freeze on their static sprite.
+    std::string current_emotion_ = "neutral";
+    lv_timer_t* walk_timer_ = nullptr;
+    bool walk_frame_left_ = true;
+    void TickWalkAnimation();
 
     void InitializeLcdThemes();
     virtual bool Lock(int timeout_ms = 0) override;
