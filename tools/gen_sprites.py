@@ -40,97 +40,137 @@ def new_canvas():
 # ----- Drawing helpers -----------------------------------------------------
 
 def draw_body_base(d, hair_offset_y=0):
-    """Round body + hair bow on top. Sets up the shape both idle/walk/etc share."""
-    # Body: slightly wider than tall, centered low so feet poke below
-    d.ellipse([6, 8, 25, 26], fill=BODY, outline=OUTLINE)
-    # Body shading on lower-right (gives 3D feel)
-    d.ellipse([14, 16, 24, 25], fill=BODY_D, outline=None)
-    d.ellipse([6, 8, 25, 26], fill=None, outline=OUTLINE)
-    # Hair tuft on top (big bow)
-    by = 2 + hair_offset_y
-    d.ellipse([10, by, 14, by + 5], fill=HAIR, outline=OUTLINE)
-    d.ellipse([17, by, 21, by + 5], fill=HAIR, outline=OUTLINE)
+    """Head + flared skirt-body + pigtails + bow.
+
+    Layout (32x32):
+      y 1-6   : bow
+      y 4-15  : head circle
+      y 6-19  : pigtails (sides)
+      y 14-26 : skirt-shaped body, flared at bottom
+      y 25-28 : feet (drawn separately by draw_feet)
+    """
+    # 1) Pigtails (drawn first so head overlaps their inside edges)
+    # Left pigtail: vertical oblong, darker tip at bottom
+    d.ellipse([1,  7,  7,  19], fill=HAIR,   outline=OUTLINE)
+    d.ellipse([1,  15, 6,  19], fill=HAIR_D, outline=OUTLINE)
+    # Right pigtail
+    d.ellipse([24, 7,  30, 19], fill=HAIR,   outline=OUTLINE)
+    d.ellipse([25, 15, 30, 19], fill=HAIR_D, outline=OUTLINE)
+    # Hair-tie band where pigtails meet head (small darker accent)
+    d.line([(5, 8),  (7, 8)],   fill=HAIR_D)
+    d.line([(24, 8), (26, 8)],  fill=HAIR_D)
+
+    # 2) Skirt — flared trapezoid below the head (drawn before head so the
+    # head overlaps the top edge cleanly).
+    skirt_poly = [(10, 14), (21, 14), (26, 25), (5, 25)]
+    d.polygon(skirt_poly, fill=BODY_D, outline=OUTLINE)
+    # Skirt vertical fold highlights
+    d.line([(13, 16), (10, 25)], fill=BODY)
+    d.line([(16, 16), (16, 25)], fill=BODY)
+    d.line([(18, 16), (21, 25)], fill=BODY)
+
+    # 3) Head — round, sits on top of the skirt
+    d.ellipse([8, 4, 23, 16], fill=BODY, outline=OUTLINE)
+    # Light shading on lower right of head
+    d.ellipse([16, 11, 22, 15], fill=BODY_D, outline=None)
+    d.ellipse([8, 4, 23, 16], fill=None, outline=OUTLINE)
+
+    # 4) Bow on top of head
+    by = 1 + hair_offset_y
+    d.ellipse([10, by,     14, by + 5], fill=HAIR,   outline=OUTLINE)
+    d.ellipse([17, by,     21, by + 5], fill=HAIR,   outline=OUTLINE)
     d.rectangle([(14, by + 1), (17, by + 4)], fill=HAIR_D, outline=OUTLINE)
+    # Tiny heart sparkle in bow center
     d.point((15, by + 2), fill=WHITE)
+    d.point((16, by + 2), fill=WHITE)
+    d.point((15, by + 3), fill=WHITE)
+
+
+def draw_eyelashes(d):
+    """Outer-corner lashes — small tick marks above outer eye edges."""
+    # Left eye outer corner (on the LEFT side of left eye)
+    d.point((9,  10), fill=BLACK)
+    d.point((10, 10), fill=BLACK)
+    # Right eye outer corner (on the RIGHT side of right eye)
+    d.point((22, 10), fill=BLACK)
+    d.point((21, 10), fill=BLACK)
 
 
 def draw_eyes_open(d):
-    """Big anime-style eyes."""
+    """Big anime-style eyes (positioned within head y=4..16)."""
     # Whites
-    d.ellipse([10, 12, 14, 17], fill=WHITE, outline=BLACK)
-    d.ellipse([17, 12, 21, 17], fill=WHITE, outline=BLACK)
+    d.ellipse([10,  8, 13, 12], fill=WHITE, outline=BLACK)
+    d.ellipse([18,  8, 21, 12], fill=WHITE, outline=BLACK)
     # Pupils
-    d.ellipse([11, 13, 13, 16], fill=BLACK, outline=None)
-    d.ellipse([18, 13, 20, 16], fill=BLACK, outline=None)
-    # Highlight (gives the eyes life)
-    d.point((12, 13), fill=WHITE)
-    d.point((19, 13), fill=WHITE)
+    d.ellipse([11,  9, 12, 11], fill=BLACK, outline=None)
+    d.ellipse([19,  9, 20, 11], fill=BLACK, outline=None)
+    # Highlight sparkles
+    d.point((12,  9), fill=WHITE)
+    d.point((20,  9), fill=WHITE)
+    draw_eyelashes(d)
 
 
 def draw_eyes_closed_blink(d):
     """Eyes closed flat — blinking."""
-    d.line([(10, 14), (14, 14)], fill=BLACK)
-    d.line([(17, 14), (21, 14)], fill=BLACK)
+    d.line([(10, 10), (13, 10)], fill=BLACK)
+    d.line([(18, 10), (21, 10)], fill=BLACK)
+    draw_eyelashes(d)
 
 
 def draw_eyes_squint_happy(d):
     """Eyes ^ ^ — happy squint."""
-    d.line([(10, 15), (12, 13)], fill=BLACK)
-    d.line([(12, 13), (14, 15)], fill=BLACK)
-    d.line([(17, 15), (19, 13)], fill=BLACK)
-    d.line([(19, 13), (21, 15)], fill=BLACK)
+    d.line([(10, 11), (11,  9)], fill=BLACK)
+    d.line([(11,  9), (13, 11)], fill=BLACK)
+    d.line([(18, 11), (19,  9)], fill=BLACK)
+    d.line([(19,  9), (21, 11)], fill=BLACK)
+    draw_eyelashes(d)
 
 
 def draw_eyes_sleep(d):
     """Eyes closed downward curve — sleeping."""
-    # Two arcs (drawn as short curved lines via points)
-    for x_off in (10, 17):
-        d.line([(x_off, 14), (x_off + 1, 15), (x_off + 2, 15), (x_off + 3, 14)], fill=BLACK)
+    for x_off in (10, 18):
+        d.line([(x_off, 10), (x_off + 1, 11), (x_off + 2, 11), (x_off + 3, 10)], fill=BLACK)
 
 
 def draw_smile(d):
-    """Small upward smile."""
-    d.line([(13, 19), (14, 20), (17, 20), (18, 19)], fill=OUTLINE)
+    """Small upward smile, fits inside the head."""
+    d.line([(13, 13), (14, 14), (17, 14), (18, 13)], fill=OUTLINE)
 
 
 def draw_big_smile(d):
     """Bigger open smile."""
-    d.line([(12, 19), (13, 21), (18, 21), (19, 19)], fill=OUTLINE)
-    d.line([(13, 21), (18, 21)], fill=OUTLINE)
+    d.line([(12, 13), (13, 15), (18, 15), (19, 13)], fill=OUTLINE)
+    d.line([(13, 15), (18, 15)], fill=OUTLINE)
 
 
 def draw_yawn(d):
     """Tiny 'o' for sleeping mouth."""
-    d.point((15, 20), fill=OUTLINE)
-    d.point((16, 20), fill=OUTLINE)
-    d.point((15, 21), fill=OUTLINE)
-    d.point((16, 21), fill=OUTLINE)
+    d.point((15, 14), fill=OUTLINE)
+    d.point((16, 14), fill=OUTLINE)
+    d.point((15, 15), fill=OUTLINE)
+    d.point((16, 15), fill=OUTLINE)
 
 
 def draw_blush(d):
-    """Pink cheeks."""
-    d.point((9, 18), fill=BLUSH)
-    d.point((22, 18), fill=BLUSH)
-    d.point((9, 19), fill=BLUSH)
-    d.point((22, 19), fill=BLUSH)
+    """Pink cheeks just below the eyes."""
+    d.point((9,  12), fill=BLUSH)
+    d.point((22, 12), fill=BLUSH)
+    d.point((9,  13), fill=BLUSH)
+    d.point((22, 13), fill=BLUSH)
 
 
 def draw_feet(d, left_y=0, right_y=0):
-    """Two feet poking below the body. left_y/right_y shift each foot up by N px."""
-    d.rectangle([(11, 25 - left_y),  (13, 27 - left_y)],  fill=OUTLINE)
-    d.rectangle([(18, 25 - right_y), (20, 27 - right_y)], fill=OUTLINE)
+    """Two feet poking below the skirt."""
+    d.rectangle([(11, 26 - left_y),  (13, 28 - left_y)],  fill=OUTLINE)
+    d.rectangle([(18, 26 - right_y), (20, 28 - right_y)], fill=OUTLINE)
 
 
 def draw_z_floating(d):
-    """Sleep 'Z' floating up-right."""
-    # Big Z
-    d.line([(24, 4), (28, 4)], fill=ZZZ)
-    d.line([(28, 4), (24, 7)], fill=ZZZ)
-    d.line([(24, 7), (28, 7)], fill=ZZZ)
-    # Small z
-    d.line([(22, 9), (24, 9)], fill=ZZZ)
-    d.line([(24, 9), (22, 11)], fill=ZZZ)
-    d.line([(22, 11), (24, 11)], fill=ZZZ)
+    """Sleep 'Z' floating up-right of the head."""
+    # Big Z (clear of pigtail)
+    d.line([(26, 2), (30, 2)], fill=ZZZ)
+    d.line([(30, 2), (26, 5)], fill=ZZZ)
+    d.line([(26, 5), (30, 5)], fill=ZZZ)
 
 
 # ----- Frame builders ------------------------------------------------------
