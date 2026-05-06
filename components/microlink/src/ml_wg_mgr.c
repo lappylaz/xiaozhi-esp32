@@ -1018,6 +1018,16 @@ static void process_disco_packet(microlink_t *ml, const ml_rx_packet_t *pkt) {
     /* Verify DISCO magic */
     if (memcmp(pkt->data, DISCO_MAGIC, 6) != 0) return;
 
+    /* sabrina-integration: DISCO message handling has a null-deref / printf
+     * bug somewhere in the PING/PONG/CallMeMaybe dispatch (crashes Core 1
+     * inside vprintf with EXCVADDR=0x3xx, indicating an %s arg pointing
+     * into uninitialized peer struct memory). For our use case (low-rate
+     * voice via 100.97.120.41 over the DERP relay) we don't need any
+     * direct peer-to-peer paths, so silently drop all incoming DISCO.
+     * Revisit when upgrading MicroLink past v2.1.0. */
+    return;
+
+    /* unreachable below — kept for reference; remove after MicroLink fix. */
     ESP_LOGI(TAG, "DISCO RX: %d bytes via %s, disco_key=%02x%02x%02x%02x",
              (int)pkt->len, pkt->via_derp ? "DERP" : "direct",
              pkt->data[6], pkt->data[7], pkt->data[8], pkt->data[9]);

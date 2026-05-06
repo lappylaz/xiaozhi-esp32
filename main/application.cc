@@ -294,8 +294,11 @@ void Application::InitializeMicrolink() {
     config.auth_key    = auth_key_buf;
     config.device_name = "aipi-lite";
     config.enable_derp = true;
-    config.enable_disco = true;
-    config.enable_stun = true;
+    // sabrina-integration: DISCO + STUN disabled — MicroLink v2.1.0 has a
+    // null-deref in ml_wg_mgr's DISCO RX path when peers send CallMeMaybe.
+    // DERP-only is fine for our use case (low-rate voice via the GCP relay).
+    config.enable_disco = false;
+    config.enable_stun = false;
     config.max_peers   = 16;
 
     microlink_t* ml = microlink_init(&config);
@@ -385,11 +388,19 @@ void Application::ActivationTask() {
     // Create OTA object for activation process
     ota_ = std::make_unique<Ota>();
 
+#if !CONFIG_USE_SABRINA_PROTOCOL
     // Check for new assets version
     CheckAssetsVersion();
 
     // Check for new firmware version
     CheckNewVersion();
+#else
+    // sabrina-integration: skip tenclass.net OTA + activation flow entirely.
+    // Both calls hit api.tenclass.net which we never speak to; the activation
+    // retry loop blocks ~70 s on boot delaying SabrinaProtocol startup.
+    ESP_LOGI(TAG, "Skipping tenclass.net OTA/activation (SabrinaProtocol)");
+    ota_->MarkCurrentVersionValid();
+#endif
 
     // Initialize the protocol
     InitializeProtocol();
