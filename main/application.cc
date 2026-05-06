@@ -78,27 +78,59 @@ void Application::Initialize() {
     audio_service_.Initialize(codec);
     audio_service_.Start();
 
-    // sabrina-integration: speaker self-test on boot. Remove after
-    // audio path is verified end-to-end. Plays a 350ms 440Hz square
-    // wave through the I2S/ES8311/PA chain. If you don't hear a beep
-    // ~3-5s after boot, the issue is between codec_dev_open and the
-    // physical speaker.
+    // sabrina-integration: Tamagotchi-style power-on jingle. A 4-note
+    // ascending arpeggio (C5-E5-G5-C6) on triangle waves with brief
+    // gaps between notes, ~580ms total. Confirms speaker + codec are
+    // alive on every boot and gives Sabrina a recognizable "I'm here"
+    // sound. Triangle wave is gentler than the square-wave self-test
+    // and has a chiptune timbre that fits the Tamagotchi vibe.
     {
-        ESP_LOGI(TAG, "Speaker self-test: 350ms 440Hz square wave");
+        ESP_LOGI(TAG, "Boot jingle: Tamagotchi arpeggio");
         codec->SetOutputVolume(80);
         codec->EnableOutput(true);
         vTaskDelay(pdMS_TO_TICKS(100));  // let codec_dev open + PA settle
+
         constexpr int kRate = 24000;
-        constexpr int kFreq = 440;
-        constexpr int kDurMs = 350;
-        std::vector<int16_t> tone((kRate * kDurMs) / 1000);
-        const int half_period = kRate / (2 * kFreq);
-        for (size_t i = 0; i < tone.size(); ++i) {
-            tone[i] = ((i / half_period) & 1) ? 12000 : -12000;
-        }
-        codec->OutputData(tone);
+        constexpr int16_t kAmp = 11000;
+
+        auto append_tone = [&](std::vector<int16_t>& out, int freq_hz, int duration_ms) {
+            int n = (kRate * duration_ms) / 1000;
+            int period = kRate / freq_hz;
+            int half = period / 2;
+            int attack_samples = std::min(n / 8, kRate / 200);  // ~5 ms
+            int release_samples = std::min(n / 8, kRate / 100); // ~10 ms
+            for (int i = 0; i < n; i++) {
+                int phase = i % period;
+                int tri;  // triangle: -kAmp .. +kAmp .. -kAmp
+                if (phase < half) {
+                    tri = -kAmp + (int)((2LL * kAmp * phase) / half);
+                } else {
+                    tri = kAmp - (int)((2LL * kAmp * (phase - half)) / half);
+                }
+                // Attack / release envelope to avoid clicks.
+                int env = 256;
+                if (i < attack_samples) env = (i * 256) / attack_samples;
+                else if (i > n - release_samples) env = ((n - i) * 256) / release_samples;
+                out.push_back((int16_t)((tri * env) / 256));
+            }
+        };
+        auto append_silence = [&](std::vector<int16_t>& out, int duration_ms) {
+            out.insert(out.end(), (kRate * duration_ms) / 1000, 0);
+        };
+
+        std::vector<int16_t> jingle;
+        jingle.reserve(kRate);  // ~1s worth
+        append_tone(jingle,  523, 110);  // C5
+        append_silence(jingle, 25);
+        append_tone(jingle,  659, 110);  // E5
+        append_silence(jingle, 25);
+        append_tone(jingle,  784, 110);  // G5
+        append_silence(jingle, 25);
+        append_tone(jingle, 1047, 220);  // C6 (held)
+
+        codec->OutputData(jingle);
         vTaskDelay(pdMS_TO_TICKS(100));  // let DMA flush
-        ESP_LOGI(TAG, "Speaker self-test: done");
+        ESP_LOGI(TAG, "Boot jingle: done");
     }
 
     AudioServiceCallbacks callbacks;
