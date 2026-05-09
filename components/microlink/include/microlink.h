@@ -213,6 +213,26 @@ const char *microlink_imei_device_name(void);
  */
 uint32_t microlink_resolve(const microlink_t *ml, const char *hostname);
 
+/**
+ * @brief Trigger WG handshake to a peer and wait for tunnel to come up
+ * @param ml Handle
+ * @param dest_vpn_ip Destination VPN IP (host byte order)
+ * @param timeout_ms Max time to wait for handshake completion
+ * @return ESP_OK if tunnel is up, ESP_ERR_TIMEOUT if not, ESP_ERR_NOT_FOUND if
+ *         peer unknown, ESP_ERR_INVALID_STATE if microlink not connected
+ *
+ * Required before standard BSD-socket dial (esp-tls, esp_websocket_client,
+ * curl, etc.) to a Tailscale peer the chip has not recently exchanged traffic
+ * with. Without this, lwIP routes the packet to the WG netif which silently
+ * drops it because no encrypted session exists. The microlink_tcp_* API
+ * triggers this internally; this is the explicit entry point for code paths
+ * that go through standard sockets.
+ *
+ * Returns immediately (ESP_OK) if a session is already up.
+ */
+esp_err_t microlink_warmup_peer(microlink_t *ml, uint32_t dest_vpn_ip,
+                                 uint32_t timeout_ms);
+
 /* ============================================================================
  * UDP Socket API
  *

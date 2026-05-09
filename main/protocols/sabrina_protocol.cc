@@ -118,6 +118,27 @@ bool SabrinaProtocol::ConnectWebSocket() {
             // Fall through and try anyway — the WS connect timeout will
             // produce a cleaner error than us returning false here.
         }
+
+        // Warm up the WG tunnel to api.sabrinainc.ai before esp-tls dials.
+        // esp_websocket_client uses standard BSD sockets via lwIP, which
+        // routes 100.64.0.0/10 traffic to the WG netif. Without an active
+        // WG session for the destination peer, the netif silently drops
+        // outbound packets — the SYN never leaves the chip, esp-tls
+        // sees select() timeout (code=32774). microlink_warmup_peer
+        // triggers the handshake via DERP + direct UDP, then waits for
+        // the session to come up. Hardcoded to sabrina-inc's VPN IP for
+        // now — should resolve via microlink_resolve() once we publish
+        // the FQDN as a tailnet hostname.
+        if (microlink_is_connected(ml)) {
+            uint32_t sabrina_inc_ip = (100u << 24) | (97u << 16) | (120u << 8) | 41u;
+            esp_err_t warm = microlink_warmup_peer(ml, sabrina_inc_ip, 10000);
+            if (warm != ESP_OK) {
+                ESP_LOGW(TAG,
+                         "WG warmup to 100.97.120.41 failed (%s); "
+                         "WSS connect may time out",
+                         esp_err_to_name(warm));
+            }
+        }
     }
 #endif
 

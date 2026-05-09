@@ -1394,6 +1394,55 @@ bool ml_wg_mgr_peer_is_up(microlink_t *ml, uint32_t vpn_ip) {
     return up;
 }
 
+/* Public warmup API — exposed via microlink.h for code paths that dial peers
+ * with standard BSD sockets (esp-tls, esp_websocket_client, etc.) instead of
+ * the microlink_tcp_* API. Wraps trigger_handshake + send_cmm + peer_is_up
+ * poll, matching the loop microlink_tcp_connect runs internally. */
+esp_err_t microlink_warmup_peer(microlink_t *ml, uint32_t dest_vpn_ip,
+                                 uint32_t timeout_ms) {
+    if (!ml || dest_vpn_ip == 0) return ESP_ERR_INVALID_ARG;
+    if (!ml->wg_netif) return ESP_ERR_INVALID_STATE;
+
+    /* Already up? Return immediately. */
+    if (ml_wg_mgr_peer_is_up(ml, dest_vpn_ip)) return ESP_OK;
+
+    int idx = find_peer_by_ip(ml, dest_vpn_ip);
+    if (idx < 0) return ESP_ERR_NOT_FOUND;
+
+    char ip_str[16];
+    microlink_ip_to_str(dest_vpn_ip, ip_str);
+    ESP_LOGI(TAG, "Warmup: triggering handshake to %s (timeout=%lums)",
+             ip_str, (unsigned long)timeout_ms);
+
+    ml_wg_mgr_trigger_handshake(ml, dest_vpn_ip);
+    ml_wg_mgr_send_cmm(ml, dest_vpn_ip);
+
+    uint32_t waited = 0;
+    uint32_t max_wait = timeout_ms > 0 ? timeout_ms : 10000;
+    while (waited < max_wait) {
+        vTaskDelay(pdMS_TO_TICKS(500));
+        waited += 500;
+
+        if (ml_wg_mgr_peer_is_up(ml, dest_vpn_ip)) {
+            ESP_LOGI(TAG, "Warmup: tunnel to %s up after %lums",
+                     ip_str, (unsigned long)waited);
+            return ESP_OK;
+        }
+
+        /* Re-trigger every 5 s in case the first init was dropped */
+        if ((waited % 5000) == 0) {
+            ESP_LOGI(TAG, "Warmup: re-triggering handshake to %s after %lums",
+                     ip_str, (unsigned long)waited);
+            ml_wg_mgr_trigger_handshake(ml, dest_vpn_ip);
+            ml_wg_mgr_send_cmm(ml, dest_vpn_ip);
+        }
+    }
+
+    ESP_LOGW(TAG, "Warmup: tunnel to %s NOT up after %lums",
+             ip_str, (unsigned long)max_wait);
+    return ESP_ERR_TIMEOUT;
+}
+
 /* ============================================================================
  * Periodic DISCO probing (rate-limited per tailscaled timing)
  * ========================================================================== */
