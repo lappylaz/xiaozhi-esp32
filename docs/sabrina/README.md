@@ -20,6 +20,16 @@ unchanged. A clean upstream AiPi build is a useful baseline before this adapter.
 The adapter requires the AiPi's 24 kHz ES8311 codec output. The maintained audio
 service resamples capture to 16 kHz mono and performs AFE processing. The original
 Xiaozhi OTA activation and vendor protocol discovery are bypassed in Sabrina mode.
+Before starting Wi-Fi, Sabrina validates and applies the already-flashed local
+asset bundle, prepares the idle audio engine/resampler/tasks, and checks the
+running OTA image state. Only an image in `PENDING_VERIFY` is marked valid, and
+that API result is checked. Missing/corrupt assets, declared but unloadable
+speech models, audio resource failures, or OTA state/acceptance errors abort
+startup without certifying the image, allowing the bootloader rollback path.
+A wake-disabled bundle intentionally lacking `srmodels` is valid: AFE uses its
+WebRTC VAD fallback. This local acceptance does not require Wi-Fi, provisioning,
+STT, or backend availability, and does not enable capture or prove microphone,
+speaker, or conversation acceptance.
 TLS uses the system certificate bundle, hostname verification and certificate
 date validation. The clock must synchronize via NTP before connecting.
 

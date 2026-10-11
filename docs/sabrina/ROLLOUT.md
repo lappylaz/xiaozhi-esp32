@@ -47,6 +47,13 @@ If retaining the old bootloader is not proven compatible, treat bootloader/OTA/a
 changes as a full firmware migration and validate recovery first. Preserve Wi-Fi
 and factory NVS unless a separately approved repair is necessary.
 
+At first boot, verify the `SabrinaStartup` local-readiness log and, for a newly
+selected OTA slot, the checked pending-image acceptance log. These occur before
+Wi-Fi startup and after local assets and idle audio resources have been checked.
+Network or credential setup failures must not make an otherwise healthy local
+image roll back; local assets/audio failures must not mark it valid. OTA-valid
+status is separate from physical voice acceptance.
+
 After the firmware boots, hold GPIO42 during the next boot to open its 60-second
 USB provisioning window. The host helper accepts the device credential through
 a hidden prompt or managed-secret pipe; it waits for physical-mode readiness,

@@ -44,7 +44,8 @@ set(SOURCES "audio/audio_codec.cc"
             )
 
 if(CONFIG_SABRINA_VOICE)
-    list(APPEND SOURCES "protocols/sabrina_protocol.cc" "protocols/sabrina_provisioning.cc")
+    list(APPEND SOURCES "protocols/sabrina_protocol.cc" "protocols/sabrina_provisioning.cc"
+                        "protocols/sabrina_startup.cc")
 endif()
 
 set(INCLUDE_DIRS "." "display" "display/lvgl_display" "display/lvgl_display/jpg" "audio" "audio/demuxer" "protocols")

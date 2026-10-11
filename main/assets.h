@@ -42,6 +42,7 @@ public:
     bool GetAssetData(const std::string& name, void*& ptr, size_t& size);
 
     inline bool partition_valid() const { return partition_valid_; }
+    inline bool srmodels_loaded() const { return models_list_ != nullptr; }
     inline std::string default_assets_url() const { return default_assets_url_; }
     inline TextFontCapability text_font_capability() const { return text_font_capability_; }
 

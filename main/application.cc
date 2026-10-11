@@ -13,6 +13,7 @@
 #include "websocket_protocol.h"
 #if CONFIG_SABRINA_VOICE
 #include "sabrina_protocol.h"
+#include "sabrina_startup.h"
 #endif
 
 #include <driver/gpio.h>
@@ -95,6 +96,12 @@ void Application::Initialize() {
         notify_player_.OnPlaybackProgress(playback_id, media_position_ms);
     };
     audio_service_.SetCallbacks(callbacks);
+
+#if CONFIG_SABRINA_VOICE
+    // Local acceptance precedes Wi-Fi and key provisioning checks. A bad local
+    // image must remain pending so the bootloader can roll it back on reboot.
+    ESP_ERROR_CHECK(PrepareSabrinaLocalStartup(audio_service_) ? ESP_OK : ESP_FAIL);
+#endif
 
     // Add state change listeners
     state_machine_.AddStateChangeListener([this](DeviceState old_state, DeviceState new_state) {

@@ -147,6 +147,9 @@ public:
     bool ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples);
     void ResetDecoder();
     void SetModelsList(srmodel_list_t* models_list);
+    // Prepare idle voice resources after the local asset bundle is applied.
+    // Does not enable recording, playback or network access.
+    bool PrepareLocalVoice();
     // Installed before capture starts. The callback receives post-AFE 16 kHz mono PCM.
     void SetPcmCaptureCallback(std::function<void(const std::vector<int16_t>&)> callback);
     void StopPcmCaptureAndFlush();

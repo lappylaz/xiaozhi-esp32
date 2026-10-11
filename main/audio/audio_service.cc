@@ -860,6 +860,19 @@ void AudioService::CheckAndUpdateAudioPowerState() {
     }
 }
 
+bool AudioService::PrepareLocalVoice() {
+    if (!codec_ || !codec_->IsInitialized() || codec_->input_sample_rate() <= 0 ||
+        codec_->output_sample_rate() != 24000 || codec_->input_channels() != 1 ||
+        codec_->output_channels() != 1 || !event_group_ || !audio_power_timer_ ||
+        !esp_timer_is_active(audio_power_timer_) || !opus_encoder_ || !opus_decoder_ ||
+        (codec_->input_sample_rate() != 16000 && !input_resampler_) || !audio_input_task_handle_ ||
+        !audio_output_task_handle_ || !opus_codec_task_handle_ || service_stopped_) {
+        ESP_LOGE(TAG, "Local voice codec, resampler, timer or audio tasks are not ready");
+        return false;
+    }
+    return InitializeAudioEngine();
+}
+
 void AudioService::SetModelsList(srmodel_list_t* models_list) {
     if (audio_engine_initialized_ && models_list_ != models_list) {
         ESP_LOGW(TAG, "Ignoring speech model replacement after audio engine initialization");

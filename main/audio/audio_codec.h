@@ -1,14 +1,14 @@
 #ifndef _AUDIO_CODEC_H
 #define _AUDIO_CODEC_H
 
-#include <freertos/FreeRTOS.h>
-#include <freertos/event_groups.h>
 #include <driver/i2s_std.h>
 #include <esp_idf_version.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/event_groups.h>
 
-#include <vector>
-#include <string>
 #include <functional>
+#include <string>
+#include <vector>
 
 #include "board.h"
 
@@ -28,7 +28,7 @@ class AudioCodec {
 public:
     AudioCodec();
     virtual ~AudioCodec();
-    
+
     virtual void SetOutputVolume(int volume);
     virtual void SetInputGain(float gain);
     virtual void EnableInput(bool enable);
@@ -37,6 +37,9 @@ public:
     virtual void OutputData(std::vector<int16_t>& data);
     virtual bool InputData(std::vector<int16_t>& data);
     virtual void Start();
+    // Explicit opt-in readiness for local boot acceptance; unsupported codecs
+    // must not certify hardware initialization without their own checks.
+    virtual bool IsInitialized() const { return false; }
 
     inline bool duplex() const { return duplex_; }
     inline bool input_reference() const { return input_reference_; }
@@ -68,4 +71,4 @@ protected:
     virtual int Write(const int16_t* data, int samples) = 0;
 };
 
-#endif // _AUDIO_CODEC_H
+#endif  // _AUDIO_CODEC_H
