@@ -147,10 +147,17 @@ public:
     bool ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples);
     void ResetDecoder();
     void SetModelsList(srmodel_list_t* models_list);
+    // Installed before capture starts. The callback receives post-AFE 16 kHz mono PCM.
+    void SetPcmCaptureCallback(std::function<void(const std::vector<int16_t>&)> callback);
+    void StopPcmCaptureAndFlush();
+    bool PushPcmPlayback(const int16_t* data, size_t samples, uint32_t generation);
+    uint32_t PlaybackGeneration();
 
 private:
     AudioCodec* codec_ = nullptr;
     AudioServiceCallbacks callbacks_;
+    std::function<void(const std::vector<int16_t>&)> pcm_capture_callback_;
+    std::mutex audio_feed_mutex_;
     std::unique_ptr<AudioEngine> audio_engine_;
     std::unique_ptr<AudioDebugger> audio_debugger_;
     void* opus_encoder_ = nullptr;

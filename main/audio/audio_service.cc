@@ -85,7 +85,11 @@ void AudioService::Initialize(AudioCodec* codec) {
     audio_engine_ = std::make_unique<LiteAudioEngine>();
 #endif
     audio_engine_->OnOutput([this](std::vector<int16_t>&& data) {
-        PushTaskToEncodeQueue(kAudioTaskTypeEncodeToSendQueue, std::move(data));
+        if (pcm_capture_callback_) {
+            pcm_capture_callback_(data);
+        } else {
+            PushTaskToEncodeQueue(kAudioTaskTypeEncodeToSendQueue, std::move(data));
+        }
     });
     audio_engine_->OnVadStateChange([this](bool speaking) {
         voice_detected_ = speaking;
@@ -311,7 +315,11 @@ void AudioService::AudioInputTask() {
             int samples = 160;  // 10ms
             std::vector<int16_t> data;
             if (ReadAudioData(data, 16000, samples)) {
-                audio_engine_->Feed(std::move(data));
+                std::lock_guard<std::mutex> feed_lock(audio_feed_mutex_);
+                if (xEventGroupGetBits(event_group_) &
+                    (AS_EVENT_WAKE_WORD_RUNNING | AS_EVENT_AUDIO_PROCESSOR_RUNNING)) {
+                    audio_engine_->Feed(std::move(data));
+                }
                 continue;
             }
         }
@@ -877,5 +885,38 @@ bool AudioService::InitializeAudioEngine() {
     }
     audio_engine_initialized_ = true;
     audio_engine_->EnableDeviceAec(device_aec_enabled_);
+    return true;
+}
+
+void AudioService::SetPcmCaptureCallback(
+    std::function<void(const std::vector<int16_t>&)> callback) {
+    pcm_capture_callback_ = std::move(callback);
+}
+
+void AudioService::StopPcmCaptureAndFlush() {
+    xEventGroupClearBits(event_group_, AS_EVENT_AUDIO_PROCESSOR_RUNNING);
+    // Join any read/feed already in flight before freezing the capture buffer.
+    std::lock_guard<std::mutex> feed_lock(audio_feed_mutex_);
+    if (audio_engine_initialized_)
+        audio_engine_->StopVoiceProcessingAndFlush();
+}
+
+uint32_t AudioService::PlaybackGeneration() {
+    std::lock_guard<std::mutex> lock(audio_queue_mutex_);
+    return playback_generation_;
+}
+
+bool AudioService::PushPcmPlayback(const int16_t* data, size_t samples, uint32_t generation) {
+    // Caller keeps this chunk on backpressure; never drop speech to make room.
+    std::lock_guard<std::mutex> lock(audio_queue_mutex_);
+    if (service_stopped_ || generation != playback_generation_ || audio_playback_queue_.full()) {
+        return false;
+    }
+    AudioTask task;
+    task.type = kAudioTaskTypeDecodeToPlaybackQueue;
+    task.pcm.assign(data, data + samples);
+    audio_playback_queue_.push_back(std::move(task));
+    playback_drained_notified_ = false;
+    audio_queue_cv_.notify_all();
     return true;
 }
