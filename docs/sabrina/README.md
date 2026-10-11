@@ -115,15 +115,21 @@ the upstream long-press Wi-Fi reset behavior.
 
 ## Verification and remaining device acceptance
 
-Recorded source commit `170eda6866e60c7069135e5f38d33a84a5cf3b28` builds in
-both Sabrina-enabled and stock modes on ESP-IDF 6.1. Receipts, effective config,
-board defaults, and resolved component versions are in
-`build-evidence/2026-10-11/`. Stock mode compiles upstream MQTT and WebSocket
-sources with the new Sabrina sources excluded. The enabled image is 2,711,008
-bytes, SHA256 `b9bc9887c4d7551e76a955bb40f35b68a5beb6d6b2d3501136876e98c62f17e1`.
-The image remains a hardware-test candidate. To reproduce, use the recorded
-ordered defaults, substituting the archived `board.defaults` for its temporary
-build path and copying `components.lock.yaml` to project `dependencies.lock`.
+Recorded source commit `79e5a236507bf1692b1dd4f7e20eb3eaa5b0a8c8` builds in
+both Sabrina-enabled and stock modes on ESP-IDF 6.1. Final receipts, source manifest,
+logs, effective config, board defaults, resolved components and installation checkpoint
+are in [startup-fixed evidence](build-evidence/2026-10-11/startup-fixed/README.md).
+The parent evidence directory retains the historical `170eda6` build. Stock mode
+compiles upstream MQTT and WebSocket sources with the new Sabrina sources excluded.
+The installed enabled image is 2,713,392 bytes, SHA256
+`2bc41459fa9da7118c0b82bf43f08d3012518556714d79aee51984c950a9b9ab`.
+
+The operator completed encrypted recovery backup, verified installation to inactive
+`ota_1`, and observed local assets/audio initialization, checked image acceptance and
+existing Wi-Fi reconnection. Permanent credential provisioning awaits the physical
+GPIO42 window. Board TLS and physical voice acceptance remain pending. To reproduce,
+use the recorded ordered defaults, substituting the archived `board.defaults` for
+its temporary build path and copying `components.lock.yaml` to `dependencies.lock`.
 
 Portable buffer tests:
 

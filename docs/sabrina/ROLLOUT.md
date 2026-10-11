@@ -1,7 +1,9 @@
 # AiPi-Lite rollout and recovery
 
-Tracking: SAB-3971 and SAB-3972. This runbook prepares an operator-approved
-rollout; no device has been reset, flashed, or provisioned by this implementation.
+Tracking: SAB-3971 and SAB-3972. The operator-approved backend deployment, encrypted
+recovery backup and firmware installation completed on 2026-10-11. Initial boot
+and Wi-Fi reconnection were observed; device credential provisioning and physical
+voice acceptance remain pending. Earlier no-reset/no-flash checkpoints were historical.
 
 ## Release artifacts
 
@@ -12,10 +14,11 @@ resolved lock with release evidence. Never include credentials or NVS images in
 Git or a public build artifact. Confirm the backend implementing SAB-3968 is
 deployed and owner-authenticated enrollment works before installing this client.
 
-The current local build evidence is under `/private/tmp/aipi-build-20261011/`.
-Those temporary paths are working artifacts and must be preserved with the
-approved release before a rollout. The existing checkout and stale build are
-historical references, not a verified recovery image of the attached device.
+Final build receipts and the installation checkpoint are archived in
+[the startup-fixed evidence](build-evidence/2026-10-11/startup-fixed/README.md).
+Temporary build paths in those receipts retain their original provenance. The
+verified full-device backup and binaries are preserved in managed local release
+storage; the encrypted backup key is in macOS Keychain. Recovery data is not in Git.
 
 ## Inspect before changing the device
 
@@ -32,14 +35,24 @@ historical references, not a verified recovery image of the attached device.
 4. Confirm recovery tooling and access to physical BOOT/reset controls. A source
    checkout alone is not a tested rollback path.
 
-Both the old local configuration and this build select `partitions/v2/16m.csv`;
-the source CSVs match. That is not evidence of the board's actual partition map.
+The actual 16 MiB board partition table was inspected and matched
+`partitions/v2/16m.csv`: NVS at `0x9000`, OTA metadata at `0xd000`, `ota_0` at
+`0x20000`, `ota_1` at `0x410000`, and shared assets at `0x800000`. The original
+application occupied `ota_0`; inactive `ota_1` was selected for this installation.
 The build's generated flash set writes bootloader at `0x0`, partition table at
 `0x8000`, OTA selection at `0xd000`, application at `0x20000`, and assets at
 `0x800000`. A blanket `idf.py flash` therefore replaces more than the application.
 Never run it as an assumed app-only update, erase flash, or write an NVS image.
 
 ## Install and provision
+
+For the completed installation, app and matched assets were written to `0x410000`
+and `0x800000` and read back before writing the second OTA metadata sector at
+`0xe000` with sequence 2 / NEW. All write readbacks passed. Bootloader, partition
+table, NVS, old `ota_0`, and the first OTA metadata sector were preserved. The
+archived bootloader comparison proves an exact match with the historical IDF 5.5.2
+bootloader and records its accompanying rollback-enabled configuration. The new
+IDF 6.1 application successfully booted on this preserved bootloader.
 
 Choose the smallest compatible write set after inspecting the board and confirming
 IDF bootloader compatibility. Record exact offsets and artifact hashes for approval.
@@ -74,7 +87,16 @@ interruption/reconnection, key revocation, and repeated-turn results separately.
 If acceptance fails, preserve nonsecret diagnostic counters, revoke any newly
 issued device key, and use the verified recovery image/layout. Restore only the
 approved regions and read back hashes before booting. Verify the prior firmware
-and Wi-Fi behavior. Do not repeatedly flash or erase NVS to mask an unknown fault.
+and Wi-Fi behavior. The assets partition is shared, so restoring the old
+application also requires matching original assets; changing only the selected OTA
+slot is not a complete rollback. Do not repeatedly flash or erase NVS to mask an
+unknown fault.
 
-Current status: source/build tests pass; deployed backend, encrypted recovery
-backup, installation, provisioning, and physical acceptance are not yet verified.
+Current checkpoint: source/build tests pass; backend `b5632d90d` deployed with
+live authentication, STT, WebSocket and revocation checks passing. Encrypted
+two-read recovery backup, installation readbacks, local assets/ES8311/AFE WebRTC
+initialization, checked image acceptance and existing Wi-Fi reconnection passed.
+The permanent scoped device key is held in Keychain; USB provisioning awaits the
+physical GPIO42 window. Board TLS, authenticated voice and physical acceptance
+remain pending. This documentation commit does not change the installed source
+commit `79e5a236507bf1692b1dd4f7e20eb3eaa5b0a8c8`.
