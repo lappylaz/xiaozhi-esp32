@@ -22,10 +22,13 @@ service resamples capture to 16 kHz mono and performs AFE processing. The origin
 Xiaozhi OTA activation and vendor protocol discovery are bypassed in Sabrina mode.
 Before starting Wi-Fi, Sabrina validates and applies the already-flashed local
 asset bundle, prepares the idle audio engine/resampler/tasks, and checks the
-running OTA image state. Only an image in `PENDING_VERIFY` is marked valid, and
+running OTA image state. Only an image in `NEW` or `PENDING_VERIFY` is marked valid, and
 that API result is checked. Missing/corrupt assets, declared but unloadable
 speech models, audio resource failures, or OTA state/acceptance errors abort
-startup without certifying the image, allowing the bootloader rollback path.
+startup without certifying the image. Retained bootloaders without rollback support
+can leave a running image `NEW`; the same readiness gate accepts that state.
+Automatic rollback is not established by this firmware check: recovery depends
+on the installed bootloader and the separately verified recovery procedure.
 A wake-disabled bundle intentionally lacking `srmodels` is valid: AFE uses its
 WebRTC VAD fallback. This local acceptance does not require Wi-Fi, provisioning,
 STT, or backend availability, and does not enable capture or prove microphone,

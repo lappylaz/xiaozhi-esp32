@@ -99,7 +99,7 @@ void Application::Initialize() {
 
 #if CONFIG_SABRINA_VOICE
     // Local acceptance precedes Wi-Fi and key provisioning checks. A bad local
-    // image must remain pending so the bootloader can roll it back on reboot.
+    // image must not be certified. Recovery depends on the installed bootloader.
     ESP_ERROR_CHECK(PrepareSabrinaLocalStartup(audio_service_) ? ESP_OK : ESP_FAIL);
 #endif
 

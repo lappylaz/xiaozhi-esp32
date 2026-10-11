@@ -1,7 +1,7 @@
 #pragma once
 
 namespace sabrina {
-enum class RunningImageState { Valid, PendingVerify, Unmanaged, Error };
+enum class RunningImageState { Valid, New, PendingVerify, Unmanaged, Error };
 enum class StartupResult { Ready, AssetsFailed, AudioFailed, ImageStateFailed, AcceptanceFailed };
 
 // Keep local boot acceptance independent of network or credential availability.
@@ -16,7 +16,7 @@ StartupResult VerifyLocalStartup(AssetsCheck assets, AudioCheck audio, ImageChec
     const auto state = image();
     if (state == RunningImageState::Error)
         return StartupResult::ImageStateFailed;
-    if (state == RunningImageState::PendingVerify && !accept())
+    if ((state == RunningImageState::New || state == RunningImageState::PendingVerify) && !accept())
         return StartupResult::AcceptanceFailed;
     return StartupResult::Ready;
 }

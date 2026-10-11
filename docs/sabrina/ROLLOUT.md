@@ -48,10 +48,12 @@ changes as a full firmware migration and validate recovery first. Preserve Wi-Fi
 and factory NVS unless a separately approved repair is necessary.
 
 At first boot, verify the `SabrinaStartup` local-readiness log and, for a newly
-selected OTA slot, the checked pending-image acceptance log. These occur before
+selected OTA slot, the checked new/pending-image acceptance log. These occur before
 Wi-Fi startup and after local assets and idle audio resources have been checked.
 Network or credential setup failures must not make an otherwise healthy local
-image roll back; local assets/audio failures must not mark it valid. OTA-valid
+image fail local acceptance; local assets/audio failures must not mark it valid.
+Do not infer automatic rollback support from the image state or acceptance log;
+verify the installed bootloader separately and preserve operator recovery. OTA-valid
 status is separate from physical voice acceptance.
 
 After the firmware boots, hold GPIO42 during the next boot to open its 60-second

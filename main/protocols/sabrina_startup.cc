@@ -60,6 +60,10 @@ sabrina::RunningImageState ReadRunningImageState() {
         ESP_LOGE(kTag, "Cannot read running OTA image state: %s", esp_err_to_name(error));
         return sabrina::RunningImageState::Error;
     }
+    // A retained bootloader without rollback support leaves the active image
+    // NEW. It still requires exactly the same local checks and acceptance call.
+    if (state == ESP_OTA_IMG_NEW)
+        return sabrina::RunningImageState::New;
     if (state == ESP_OTA_IMG_PENDING_VERIFY)
         return sabrina::RunningImageState::PendingVerify;
     if (state == ESP_OTA_IMG_VALID)
@@ -77,10 +81,10 @@ bool PrepareSabrinaLocalStartup(AudioService& audio) {
         []() {
             auto error = esp_ota_mark_app_valid_cancel_rollback();
             if (error != ESP_OK) {
-                ESP_LOGE(kTag, "Cannot accept pending OTA image: %s", esp_err_to_name(error));
+                ESP_LOGE(kTag, "Cannot accept new/pending OTA image: %s", esp_err_to_name(error));
                 return false;
             }
-            ESP_LOGI(kTag, "Accepted pending OTA image after local assets/audio readiness");
+            ESP_LOGI(kTag, "Accepted new/pending OTA image after local assets/audio readiness");
             return true;
         });
     if (result != sabrina::StartupResult::Ready) {

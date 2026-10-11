@@ -30,18 +30,24 @@ int main() {
                 return accept_ok;
             });
     };
-    assert(run() == StartupResult::Ready && calls == "AMSV");
-    assets_ok = false;
-    assert(run() == StartupResult::AssetsFailed && calls == "A");
-    assets_ok = true;
-    audio_ok = false;
-    assert(run() == StartupResult::AudioFailed && calls == "AM");
-    audio_ok = true;
+    // Older bootloaders may leave NEW unchanged rather than transitioning to
+    // PENDING_VERIFY. Both states must pass the same local checks and checked
+    // acceptance call; failures must never falsely certify either image.
+    for (auto candidate_state : {RunningImageState::New, RunningImageState::PendingVerify}) {
+        image_state = candidate_state;
+        assets_ok = audio_ok = accept_ok = true;
+        assert(run() == StartupResult::Ready && calls == "AMSV");
+        assets_ok = false;
+        assert(run() == StartupResult::AssetsFailed && calls == "A");
+        assets_ok = true;
+        audio_ok = false;
+        assert(run() == StartupResult::AudioFailed && calls == "AM");
+        audio_ok = true;
+        accept_ok = false;
+        assert(run() == StartupResult::AcceptanceFailed && calls == "AMSV");
+    }
     image_state = RunningImageState::Error;
     assert(run() == StartupResult::ImageStateFailed && calls == "AMS");
-    image_state = RunningImageState::PendingVerify;
-    accept_ok = false;
-    assert(run() == StartupResult::AcceptanceFailed && calls == "AMSV");
     // Existing valid/factory images must never call the OTA acceptance API,
     // even if that API would fail. No Wi-Fi/provisioning dependency is present.
     image_state = RunningImageState::Valid;
