@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "source_commit": "170eda6866e60c7069135e5f38d33a84a5cf3b28",
+  "source_content_verified_against_commit": true,
+  "upstream_sha": "49b4380b3faa0ceadd28a3e78aaf0f311c46c57e",
+  "idf_sha": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "source_manifest_sha256": "578f13b0c8c865daa40ca8d696be0e0c5cc8da833a777b51af7bb44e521e9271",
+  "sdkconfig_sha256": "aa0e49fb87a0d9c289304627d966d9347b4f0db6505b739e020778675bf022bf",
+  "dependencies_lock_sha256": "67a99ad0838973849f9cbf7bbdcc36cf960f9c7a9fe8a15944c301d859c11dec",
+  "binary_bytes": 2697728,
+  "binary_sha256": "b6bd7147bd9bc76c2a8e5ccc9f4a4792b385fea80c04acfdba0e5eb2a9893ead",
+  "sabrina_enabled": false,
+  "config_assertions": [
+    "CONFIG_BOARD_TYPE_XORIGIN_AIPI_LITE=y",
+    "CONFIG_WAKE_WORD_DISABLED=y",
+    "# CONFIG_SABRINA_VOICE is not set"
+  ],
+  "compile_assertions": [
+    "Upstream MQTT and WebSocket sources compiled",
+    "Sabrina protocol/provisioning excluded",
+    "No MicroLink or Tailscale inputs"
+  ],
+  "build_working_directory": "/private/tmp/aipi-build-20261011/stock-modified",
+  "final_build_command": "/private/tmp/aipi-build-20261011/with-idf.sh idf.py -DIDF_TARGET=esp32s3 '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.esp32s3;/private/tmp/aipi-build-20261011/upstream/build/xiaozhi-build.sdkconfig.defaults' -DBOARD_NAME=aipi-lite build",
+  "sdkconfig_defaults_order": [
+    "sdkconfig.defaults",
+    "sdkconfig.defaults.esp32s3",
+    "/private/tmp/aipi-build-20261011/upstream/build/xiaozhi-build.sdkconfig.defaults"
+  ],
+  "sdkconfig_defaults_sha256": {
+    "sdkconfig.defaults": "c11d0c8d6ff4100947deb7b7f1b07682784f782ec3f47c2cbfaea9ef5b8ed0e9",
+    "sdkconfig.defaults.esp32s3": "315d65976815214c463cb605b2242c4f40e2bff078bcc1341d2f71892a3a7797",
+    "/private/tmp/aipi-build-20261011/upstream/build/xiaozhi-build.sdkconfig.defaults": "81a76830ef619f6776ef740fc285451827c9d9a6ca7f18d1227f912cc90f5713"
+  },
+  "final_build_exit_code": 0,
+  "device_flashing": false,
+  "runtime_verification": false
+}

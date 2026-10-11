@@ -102,6 +102,16 @@ the upstream long-press Wi-Fi reset behavior.
 
 ## Verification and remaining device acceptance
 
+Recorded source commit `170eda6866e60c7069135e5f38d33a84a5cf3b28` builds in
+both Sabrina-enabled and stock modes on ESP-IDF 6.1. Receipts, effective config,
+board defaults, and resolved component versions are in
+`build-evidence/2026-10-11/`. Stock mode compiles upstream MQTT and WebSocket
+sources with the new Sabrina sources excluded. The enabled image is 2,711,008
+bytes, SHA256 `b9bc9887c4d7551e76a955bb40f35b68a5beb6d6b2d3501136876e98c62f17e1`.
+The image remains a hardware-test candidate. To reproduce, use the recorded
+ordered defaults, substituting the archived `board.defaults` for its temporary
+build path and copying `components.lock.yaml` to project `dependencies.lock`.
+
 Portable buffer tests:
 
 ```sh
