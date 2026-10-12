@@ -179,6 +179,15 @@ void SabrinaProtocol::SocketEvent(void* arg, esp_event_base_t, int32_t id, void*
         !self->assembler_.Add(event->op_code, event->fin, event->payload_len, event->payload_offset,
                               reinterpret_cast<const uint8_t*>(event->data_ptr), event->data_len,
                               complete)) {
+        ESP_LOGE(kTag,
+                 "Ingress rejected: reason=%s opcode=%d frame_bytes=%d offset=%d event_bytes=%d "
+                 "assembled_bytes=%u",
+                 event->payload_offset < 0 || event->payload_len < 0 || event->data_len < 0 ||
+                         event->payload_offset > event->payload_len
+                     ? "invalid_frame_fields"
+                     : self->assembler_.failure_reason(),
+                 event->op_code, event->payload_len, event->payload_offset, event->data_len,
+                 unsigned(self->assembler_.size()));
         self->ingress_failed_ = true;
         return;
     }
@@ -186,6 +195,13 @@ void SabrinaProtocol::SocketEvent(void* arg, esp_event_base_t, int32_t id, void*
         return;
     auto bytes = self->assembler_.Take();
     if (bytes.size() > kInboxLimit - self->inbox_bytes_ || self->inbox_.size() >= 128) {
+        ESP_LOGE(
+            kTag,
+            "Ingress rejected: reason=%s message_bytes=%u inbox_bytes=%u inbox_count=%u "
+            "frame_bytes=%d offset=%d",
+            bytes.size() > kInboxLimit - self->inbox_bytes_ ? "inbox_byte_cap" : "inbox_count_cap",
+            unsigned(bytes.size()), unsigned(self->inbox_bytes_), unsigned(self->inbox_.size()),
+            event->payload_len, event->payload_offset);
         self->ingress_failed_ = true;
         return;
     }
@@ -214,7 +230,7 @@ bool SabrinaProtocol::Connect() {
     }
     if (stopping_)
         return false;
-    std::string url = ws_url_ + "?audio_format=pcm_24000";
+    std::string url = ws_url_ + "?audio_format=pcm_24000&audio_flow=ack_v1";
     if (!session_id_.empty())
         url += "&session_id=" + session_id_;
     std::string headers = "X-API-Key: " + device_key_ +
@@ -253,6 +269,8 @@ void SabrinaProtocol::CloseSocket() {
     assembler_.Reset();
     ingress_failed_ = false;
     disconnected_ = false;
+    last_chunk_id_ = pending_chunk_id_ = 0;
+    expect_binary_ = false;
 }
 
 bool SabrinaProtocol::SendText(const std::string& text) {
@@ -443,7 +461,9 @@ void SabrinaProtocol::PollTranscription() {
 
 void SabrinaProtocol::ProcessMessage(Message&& message) {
     if (message.binary) {
-        if (!expect_binary_ || message.bytes.empty() || message.bytes.size() % 2 != 0) {
+        if (!connected_ || !expect_binary_ || pending_chunk_id_ == 0 || !playback_.empty() ||
+            message.bytes.empty() || message.bytes.size() > kAudioChunkBytes ||
+            message.bytes.size() % 2 != 0) {
             Fail("Invalid or unpaired Sabrina PCM audio.");
             return;
         }
@@ -452,6 +472,7 @@ void SabrinaProtocol::ProcessMessage(Message&& message) {
             ESP_LOGI(kTag, "User capture superseded unsolicited audio: discarded_bytes=%u",
                      unsigned(message.bytes.size()));
             discard_audio_ = false;
+            AcknowledgeAudio();
             return;
         }
         received_bytes_ += message.bytes.size();
@@ -482,6 +503,14 @@ void SabrinaProtocol::ProcessMessage(Message&& message) {
         if (connected_) {
             cJSON_Delete(root);
             Fail("Unexpected Sabrina session change.");
+            return;
+        }
+        const auto* chunk_bytes = cJSON_GetObjectItemCaseSensitive(root, "audio_chunk_bytes");
+        if (StringField(root, "audio_flow") != "ack_v1" || !cJSON_IsNumber(chunk_bytes) ||
+            chunk_bytes->valuedouble != kAudioChunkBytes) {
+            cJSON_Delete(root);
+            Fail(
+                "Sabrina backend lacks bounded audio flow. Deploy ack_v1 support before retrying.");
             return;
         }
         auto id = StringField(root, "session_id");
@@ -516,7 +545,11 @@ void SabrinaProtocol::ProcessMessage(Message&& message) {
         if (seq)
             last_seq_ = seq->valueint;
         if (type == "audio") {
-            if (StringField(root, "format") != "pcm_24000") {
+            const auto* chunk_id = cJSON_GetObjectItemCaseSensitive(root, "chunk_id");
+            if (!connected_ || pending_chunk_id_ != 0 || !playback_.empty() ||
+                last_chunk_id_ == INT32_MAX || !cJSON_IsNumber(chunk_id) ||
+                chunk_id->valuedouble != static_cast<double>(last_chunk_id_) + 1 ||
+                StringField(root, "format") != "pcm_24000") {
                 cJSON_Delete(root);
                 Fail("Unexpected Sabrina audio format or turn state.");
                 return;
@@ -526,6 +559,7 @@ void SabrinaProtocol::ProcessMessage(Message&& message) {
             // playing it over the user's microphone recording.
             discard_audio_ =
                 !turn_active_ && (state_ == State::Recording || state_ == State::Transcribing);
+            pending_chunk_id_ = chunk_id->valueint;
             expect_binary_ = true;
         }
     } else if (type == "done") {
@@ -549,6 +583,17 @@ void SabrinaProtocol::ProcessMessage(Message&& message) {
     cJSON_Delete(root);
 }
 
+bool SabrinaProtocol::AcknowledgeAudio() {
+    if (pending_chunk_id_ == 0 || !SendText("{\"type\":\"audio_ack\",\"chunk_id\":" +
+                                            std::to_string(pending_chunk_id_) + "}")) {
+        Fail("Sabrina audio acknowledgement failed. Press to reconnect.");
+        return false;
+    }
+    last_chunk_id_ = pending_chunk_id_;
+    pending_chunk_id_ = 0;
+    return true;
+}
+
 void SabrinaProtocol::PumpPlayback() {
     if (playback_offset_ >= playback_.size())
         return;
@@ -562,6 +607,9 @@ void SabrinaProtocol::PumpPlayback() {
         if (playback_offset_ == playback_.size()) {
             playback_.clear();
             playback_offset_ = 0;
+            // The bounded playback queue owns every sample before granting the
+            // server permission to send the next chunk. Never ACK on receipt.
+            AcknowledgeAudio();
         }
     }
 }
@@ -604,7 +652,9 @@ void SabrinaProtocol::Run() {
             Fail("Sabrina heartbeat timed out. Press to reconnect.");
         PollTranscription();
         PumpPlayback();
-        if (playback_.empty()) {
+        // ACK pacing bounds audio independently of reply duration. Keep
+        // processing controls/pongs while the playback queue applies pressure.
+        {
             Message message;
             bool available = false;
             {

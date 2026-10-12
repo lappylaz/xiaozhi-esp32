@@ -24,7 +24,7 @@ class InterruptionTests(unittest.TestCase):
         # Accept the original no-argument signature to demonstrate the regression.
         if 'Cancel()' in cancel:
             harness = harness.replace('void Cancel(bool start_recording = false);', 'void Cancel();')
-        harness = harness.replace('// PRODUCTION_METHODS', '\n'.join([cancel] + [method(source, name) for name in ['Run', 'Connect', 'PollTranscription', 'ProcessMessage']]))
+        harness = harness.replace('// PRODUCTION_METHODS', '\n'.join([cancel] + [method(source, name) for name in ['Run', 'Connect', 'PollTranscription', 'ProcessMessage', 'PumpPlayback', 'AcknowledgeAudio']] + [method(source, 'CloseSocket').replace('::CloseSocket()', '::ResetTransport()')]))
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)
             (path / 'test.cc').write_text(harness)

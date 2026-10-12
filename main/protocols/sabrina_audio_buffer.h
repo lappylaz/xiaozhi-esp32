@@ -71,6 +71,7 @@ public:
     bool Add(int opcode, bool fin, size_t frame_size, size_t offset, const uint8_t* data,
              size_t size, bool& complete) {
         complete = false;
+        failure_reason_ = "frame_assembly";
         if (opcode >= 8)
             return true;  // control frames may interrupt a fragmented message
         if (offset == 0) {
@@ -85,8 +86,12 @@ public:
             frame_received_ = 0;
         }
         if (!active_ || offset > frame_size || offset != frame_received_ ||
-            size > frame_size - offset || bytes_.size() > limit_ || size > limit_ - bytes_.size())
+            size > frame_size - offset)
             return false;
+        if (bytes_.size() > limit_ || size > limit_ - bytes_.size()) {
+            failure_reason_ = "message_byte_cap";
+            return false;
+        }
         bytes_.insert(bytes_.end(), data, data + size);
         frame_received_ += size;
         complete = fin && frame_received_ == frame_size;
@@ -95,6 +100,8 @@ public:
         return true;
     }
     bool binary() const { return binary_; }
+    const char* failure_reason() const { return failure_reason_; }
+    size_t size() const { return bytes_.size(); }
     std::vector<uint8_t> Take() { return std::move(bytes_); }
     void Reset() {
         active_ = false;
@@ -103,6 +110,7 @@ public:
     }
 
 private:
+    const char* failure_reason_ = "frame_assembly";
     size_t limit_, frame_received_ = 0;
     bool active_ = false, binary_ = false;
     std::vector<uint8_t> bytes_;

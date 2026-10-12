@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstring>
 #include <iostream>
 #include "sabrina_audio_buffer.h"
 
@@ -45,6 +46,7 @@ int main() {
     assert(assembler.binary());
     assert(assembler.Take() == std::vector<uint8_t>({1, 2, 3, 4, 1, 2}));
     assert(!assembler.Add(0, true, 2, 0, b, 2, done));
+    assert(std::strcmp(assembler.failure_reason(), "frame_assembly") == 0);
     assembler.Reset();
     assert(assembler.Add(1, false, 4, 0, b, 4, done));
     assert(!assembler.Add(1, true, 4, 0, b, 4, done));
@@ -56,5 +58,7 @@ int main() {
     assert(assembler.Add(2, false, 4, 0, b, 4, done));
     assert(assembler.Add(0, false, 4, 0, b, 4, done));
     assert(!assembler.Add(0, true, 4, 0, b, 4, done));
+    assert(std::strcmp(assembler.failure_reason(), "message_byte_cap") == 0);
+    assert(assembler.size() == 8);
     std::cout << "recording ownership/overflow and websocket fragmentation tests passed\n";
 }

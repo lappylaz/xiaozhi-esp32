@@ -63,7 +63,7 @@ Production endpoints:
 - `wss://api.sabrinainc.ai/ws/voice`
 - `https://api.sabrinainc.ai/api/stt`
 
-The firmware adds `audio_format=pcm_24000` and optional authoritative `session_id`
+The firmware adds `audio_format=pcm_24000&audio_flow=ack_v1` and optional authoritative `session_id`
 to WSS and `sample_rate=16000` to STT. Configured URLs must not supply query strings.
 The server-issued session ID is stored separately for resume; it is not an
 authentication credential. HTTP redirects are disabled for the credentialed STT
@@ -72,9 +72,9 @@ request. Backend ownership checks remain authoritative on reconnect.
 ## Interaction and audio lifecycle
 
 1. Wait for **Hold button to talk**. Press and hold the talk button.
-2. **Listening** indicates capture has actually started. Connection establishment
-   never means microphone capture has started; a release before readiness cancels
-   pending capture.
+2. **Listening** indicates capture has actually started. A press starts local
+   capture before socket teardown or reconnection. A release during the handshake
+   preserves that recording; its completed transcript waits for authentication.
 3. Release to submit. The microphone remains active for an explicit 240 ms
    hangover to protect the last syllable. The input/feed boundary is joined,
    processed AFE partial output is flushed under its output mutex, and the owned
@@ -86,13 +86,21 @@ request. Backend ownership checks remain authoritative on reconnect.
 5. The recognized text goes to the existing Sabrina voice session. No local
    Opus encode/decode round trip occurs.
 6. Sabrina audio metadata must be followed by a binary PCM message. The adapter
-   handles WebSocket frame/event fragmentation, checks format and optional
-   sequence numbers, and feeds 20 ms PCM chunks with backpressure into the
-   maintained speaker queue. **Speaking** continues until the queue and its
+   requires the server to advertise `audio_flow: "ack_v1"` and
+   `audio_chunk_bytes: 9600`. Each binary message is nonempty, even-length PCM
+   of at most 9,600 bytes (200 ms). Connection-scoped `chunk_id` values start at 1
+   and increase by exactly one, up to INT32_MAX. The adapter handles WebSocket
+   frame/event fragmentation, checks format and optional sequence numbers, and
+   feeds 20 ms PCM slices with backpressure into the maintained speaker queue.
+   Only after the entire chunk has entered that queue does it send
+   `{"type":"audio_ack","chunk_id":N}`. The server keeps one chunk outstanding.
+   Only the first chunk of each original audio event carries its `seq`; continuation
+   chunks omit it. Control messages and pongs continue to be processed while
+   playback is backpressured. **Speaking** continues until the queue and its
    in-flight output drain, even after the server sends `done`.
 7. Pressing during speech or thinking cancels the old turn, flushes pending local
-   audio, closes the old socket, resumes the authoritative session on a fresh
-   connection, and starts the next recording only when ready and still held.
+   audio, starts the new recording immediately while the button is held, closes
+   the old socket, and resumes the authoritative session on a fresh connection.
    An already executing speaker write may finish its 20 ms chunk. Reconnection
    isolates late binary frames, which do not carry turn IDs in the backend
    protocol. A canceled STT result is rejected by generation.
@@ -101,13 +109,19 @@ Capture is limited to 20 seconds / 640,000 PCM bytes. A recording that exceeds
 the cap fails explicitly, rather than submitting a truncated sentence. Socket
 messages are capped at 512 KiB and the inbox at 1 MiB / 128 messages. Overflow
 fails the turn and makes the next press reconnect; speech is never evicted from
-the queue to make room. Long or rapidly synthesized sentences can hit these
-limits and are an acceptance-test item. Counters report captured samples and
-received/enqueued playback bytes. No transcript or credential is logged.
+the queue to make room. ACK pacing bounds ingress independently of response
+length; these defensive limits remain unchanged. Unsupported backend flow
+negotiation, oversized/odd chunks, and missing/duplicate/out-of-order chunk IDs
+fail explicitly. Logs distinguish frame assembly, message size, inbox byte and
+inbox count failures using numeric byte counts and frame offsets. Counters
+report captured samples and received/enqueued playback bytes. No transcript or
+credential is logged. Deploy the ACK-capable backend before this firmware; it
+does not fall back to unbounded legacy audio.
 
 Server followup offers also play and drain. If an offer arrives after the user
 has already started recording, its paired audio is intentionally discarded with
-an explicit byte count, so Sabrina cannot speak into the microphone. This is
+an explicit byte count and acknowledged to release server backpressure, so
+Sabrina cannot speak into the microphone. This is
 button-controlled half-duplex operation. It does not claim acoustic echo-free
 barge-in or hands-free operation; the board has no established playback-reference
 channel for AEC. Triple-click enters Wi-Fi setup; a long PTT no longer triggers
@@ -159,3 +173,15 @@ Required physical acceptance:
 
 Nothing in the source/build verification alone constitutes device acceptance,
 backend deployment, or authorization to flash/reset the attached unit.
+
+ACK flow regression test (production worker/message/playback methods with host boundaries):
+
+```sh
+python3 -m unittest discover -s tests -p test_sabrina_interrupt.py -v
+```
+
+The ASAN/UBSAN harness covers five minutes of simulated PCM, queue backpressure,
+ACK timing, partial final chunks, connection negotiation, invalid chunk sizes and
+IDs, controls during blocked playback, discarded followup ACKs, and the previous
+interruption/capture regression. Physical sustained speech and reconnect
+acceptance must still be repeated on the installed image.

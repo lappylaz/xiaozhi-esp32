@@ -57,6 +57,8 @@ private:
     sabrina::ReleaseHangover release_hangover_{240000};
     int64_t state_at_ = 0, connection_at_ = 0, last_ping_ = 0, last_pong_ = 0;
     int last_seq_ = -1;
+    static constexpr size_t kAudioChunkBytes = 9600;
+    int32_t last_chunk_id_ = 0, pending_chunk_id_ = 0;
     size_t received_bytes_ = 0, queued_bytes_ = 0;
 
     void Run();
@@ -71,6 +73,7 @@ private:
     void PollTranscription();
     void ProcessMessage(Message&& message);
     void PumpPlayback();
+    bool AcknowledgeAudio();
     bool SendText(const std::string& text) override;
     static void SocketEvent(void* arg, esp_event_base_t base, int32_t id, void* data);
 };
