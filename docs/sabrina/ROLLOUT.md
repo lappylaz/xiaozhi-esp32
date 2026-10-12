@@ -100,3 +100,29 @@ The permanent scoped device key is held in Keychain; USB provisioning awaits the
 physical GPIO42 window. Board TLS, authenticated voice and physical acceptance
 remain pending. This documentation commit does not change the installed source
 commit `79e5a236507bf1692b1dd4f7e20eb3eaa5b0a8c8`.
+
+## Interruption follow-up
+
+Physical listening acceptance passed: Branson reported that the reply sounds as
+expected, like the iOS app. Interruption then exposed a lost-recording defect:
+the old worker stopped playback, reopened the socket, and waited for `Ready`
+before starting capture. A prompt released before the new handshake was never
+recorded. Capture now begins before interrupt send/socket teardown, survives
+connection-state changes, and retains its transcript until the authenticated
+session is ready. The transport is still replaced to exclude old untagged PCM.
+
+`python3 -m unittest discover -s tests -v` includes a sanitizer-enabled host
+harness executing the production worker, cancellation, connection, message and
+transcription methods with delayed transport boundaries. The pre-fix worker
+failed with zero samples; fixed ordering preserves the prompt and rejects stale
+transcription results. Real interruption acceptance still requires repeating the
+story/time test on the patched board.
+
+For this application-only update, inspect and encrypt the current provisioned
+board first. Stage the patched app in `ota_0`, verify it, then select sequence 3
+NEW in the first OTA metadata sector. Retain the working Sabrina application in
+`ota_1` with sequence 2 VALID and the same shared assets. Bootloader, partition
+table, NVS and assets are unchanged. The original vendor application is still
+recoverable from the original encrypted full-flash backup; it is no longer the
+on-device fallback after staging this update. This update must not use a blanket
+flash command.

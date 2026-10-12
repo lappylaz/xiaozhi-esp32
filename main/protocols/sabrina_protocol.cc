@@ -194,7 +194,9 @@ void SabrinaProtocol::SocketEvent(void* arg, esp_event_base_t, int32_t id, void*
 }
 
 bool SabrinaProtocol::Connect() {
-    SetState(State::Offline);
+    // A button press owns the microphone while transport reconnects.
+    if (state_ != State::Recording && state_ != State::Transcribing)
+        SetState(State::Offline);
     // Certificate dates are validated. An unset clock is a connection failure,
     // never a reason to disable peer or hostname verification.
     if (time(nullptr) < 1735689600) {
@@ -234,7 +236,7 @@ bool SabrinaProtocol::Connect() {
         Fail("Cannot start the secure Sabrina connection.");
         return false;
     }
-    state_at_ = esp_timer_get_time();
+    connection_at_ = esp_timer_get_time();
     return true;
 }
 
@@ -259,7 +261,7 @@ bool SabrinaProtocol::SendText(const std::string& text) {
                static_cast<int>(text.size());
 }
 
-void SabrinaProtocol::Cancel() {
+void SabrinaProtocol::Cancel(bool start_recording) {
     ++generation_;
     audio_.StopPcmCaptureAndFlush();
     {
@@ -272,11 +274,16 @@ void SabrinaProtocol::Cancel() {
     expect_binary_ = false;
     turn_active_ = false;
     discard_audio_ = false;
+    // Start capture before either the interrupt send or socket teardown, both
+    // of which can block. Network readiness must not consume the user's speech.
+    if (start_recording && pressed_ && !stt_running_)
+        BeginRecording();
     SendText("{\"type\":\"interrupt\"}");
     // PCM frames lack a turn identifier. A new transport is the isolation
     // boundary; retain only the server-issued conversation ID.
     CloseSocket();
-    SetState(State::Offline);
+    if (state_ != State::Recording || !start_recording)
+        SetState(State::Offline);
 }
 
 void SabrinaProtocol::Fail(const char* message) {
@@ -309,6 +316,7 @@ void SabrinaProtocol::BeginRecording() {
         return;
     }
     SetState(State::Recording);
+    ESP_LOGI(kTag, "Capture started; session_ready=%d", connected_.load());
 }
 
 void SabrinaProtocol::EndRecording() {
@@ -399,6 +407,9 @@ void SabrinaProtocol::Transcribe() {
 }
 
 void SabrinaProtocol::PollTranscription() {
+    // Keep the completed result until the new authenticated session is ready.
+    if (!connected_)
+        return;
     std::string text, error;
     {
         std::lock_guard<std::mutex> lock(stt_mutex_);
@@ -488,7 +499,10 @@ void SabrinaProtocol::ProcessMessage(Message&& message) {
         error_occurred_ = false;
         if (on_connected_)
             on_connected_();
-        SetState(State::Ready);
+        if (state_ != State::Recording && state_ != State::Transcribing)
+            SetState(State::Ready);
+        ESP_LOGI(kTag, "Session ready; recording=%d transcribing=%d", state_ == State::Recording,
+                 state_ == State::Transcribing);
     } else if (type == "pong") {
         last_pong_ = esp_timer_get_time();
     } else if (type == "audio" || type == "sentence") {
@@ -563,7 +577,11 @@ void SabrinaProtocol::Run() {
             if (state_ == State::Recording)
                 release_hangover_.Reset();
             if (state_ != State::Ready && state_ != State::Recording && socket_)
-                Cancel();
+                Cancel(true);
+            // Also capture a retry from Offline before starting TLS. A release
+            // during the handshake still leaves a complete local recording.
+            if (state_ != State::Recording && pressed_ && !stt_running_)
+                BeginRecording();
             reconnect_requested_ = true;
         }
         if (!socket_ && reconnect_requested_) {
@@ -575,7 +593,7 @@ void SabrinaProtocol::Run() {
         if (disconnected_.exchange(false))
             Fail("Sabrina connection closed. Check Wi-Fi and device key, then press again.");
         const auto now = esp_timer_get_time();
-        if (socket_ && !connected_ && now - state_at_ > 20 * kSecond)
+        if (socket_ && !connected_ && now - connection_at_ > 20 * kSecond)
             Fail("Sabrina did not accept this device. Check provisioning and press again.");
         if (connected_ && now - last_ping_ > 15 * kSecond) {
             last_ping_ = now;

@@ -55,14 +55,14 @@ private:
     bool stt_done_ = false, expect_binary_ = false, reconnect_requested_ = true,
          turn_active_ = false, discard_audio_ = false;
     sabrina::ReleaseHangover release_hangover_{240000};
-    int64_t state_at_ = 0, last_ping_ = 0, last_pong_ = 0;
+    int64_t state_at_ = 0, connection_at_ = 0, last_ping_ = 0, last_pong_ = 0;
     int last_seq_ = -1;
     size_t received_bytes_ = 0, queued_bytes_ = 0;
 
     void Run();
     bool Connect();
     void CloseSocket();
-    void Cancel();
+    void Cancel(bool start_recording = false);
     void Fail(const char* message);
     void SetState(State state);
     void BeginRecording();
