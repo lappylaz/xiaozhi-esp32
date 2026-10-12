@@ -185,3 +185,32 @@ ACK timing, partial final chunks, connection negotiation, invalid chunk sizes an
 IDs, controls during blocked playback, discarded followup ACKs, and the previous
 interruption/capture regression. Physical sustained speech and reconnect
 acceptance must still be repeated on the installed image.
+
+## AiPi screen and local clock
+
+The Sabrina-only AiPi display uses a dedicated 128 x 128 layout: an Eastern
+12-hour clock at the top, the Sabrina website portrait in the center, and an
+opaque 30-pixel bottom band for readable voice state and scrolling error details.
+The clock has its own label and never replaces Listening, Thinking, or an error.
+`EST5EDT,M3.2.0/2,M11.1.0/2` applies US Eastern daylight-saving transitions;
+SNTP and certificate validation still use the UTC epoch. Host tests cover midnight,
+noon, winter/summer offsets, and both 2026 DST boundaries.
+
+Portrait source: <https://www.sabrinainc.ai/images/sabrina-icon.png>, requested by
+the operator for this Sabrina surface. It is proportionally reduced from
+303 x 320 to 76 x 80, with no crop or likeness changes, and encoded as 24,320
+BGRA bytes in the application image. The source SHA256 is recorded in
+`main/boards/xorigin/aipi-lite/sabrina_avatar.h`. This embeds the website asset
+for the requested product use; no separate third-party license is asserted.
+The shared assets partition stays unchanged. Reproduce the pixel conversion with:
+
+```sh
+ffmpeg -i sabrina-icon.png -vf 'scale=76:80:flags=lanczos' -f rawvideo -pix_fmt bgra sabrina-avatar.bgra
+```
+
+A two-pixel breathing motion runs only while listening, transcribing, thinking,
+or speaking. Idle and sleep are static. It reuses one image through LVGL;
+there is no GIF decoder, extra frame sequence, or audio sampling for animation.
+Other boards and Sabrina-disabled AiPi builds retain their original screen and
+clock behavior. Physical readability, orientation and animation still require
+checking the installed device.

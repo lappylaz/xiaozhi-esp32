@@ -20,6 +20,9 @@
 #include "power_save_timer.h"
 #include "system_reset.h"
 #include "wifi_board.h"
+#if CONFIG_SABRINA_VOICE
+#include "sabrina_display.h"
+#endif
 
 #define TAG "AIPI-Lite"
 
@@ -121,9 +124,14 @@ private:
         esp_lcd_panel_invert_color(panel_, DISPLAY_INVERT_COLOR);
         esp_lcd_panel_swap_xy(panel_, DISPLAY_SWAP_XY);
         esp_lcd_panel_mirror(panel_, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
-        display_ = new SpiLcdDisplay(panel_io, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT,
-                                     DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X,
-                                     DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
+#if CONFIG_SABRINA_VOICE
+        using BoardDisplay = SabrinaAiPiDisplay;
+#else
+        using BoardDisplay = SpiLcdDisplay;
+#endif
+        display_ =
+            new BoardDisplay(panel_io, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X,
+                             DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 
     void InitializeButtons() {
@@ -188,6 +196,11 @@ private:
 
 public:
     AIPILite() : boot_button_(BOOT_BUTTON_GPIO), power_button_(POWER_BUTTON_GPIO) {
+#if CONFIG_SABRINA_VOICE
+        // US Eastern local display time; SNTP and TLS continue to use UTC epoch.
+        setenv("TZ", sabrina::kEasternTimezone, 1);
+        tzset();
+#endif
         InitializePowerCtl();
         InitializePowerManager();
         InitializePowerSaveTimer();
