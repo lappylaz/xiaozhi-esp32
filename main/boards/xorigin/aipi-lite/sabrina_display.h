@@ -15,8 +15,6 @@ public:
 
     ~SabrinaAiPiDisplay() override {
         DisplayLockGuard lock(this);
-        if (emoji_box_)
-            lv_anim_delete(emoji_box_, nullptr);
         if (clock_label_)
             lv_obj_delete(clock_label_);
     }
@@ -82,17 +80,12 @@ public:
         LvglDisplay::SetStatus(text);
         DisplayLockGuard lock(this);
         error_detail_ = false;
-        motion_requested_ = strcmp(text, "Listening") == 0 || strcmp(text, "Thinking") == 0 ||
-                            strcmp(text, "Speaking") == 0 || strcmp(text, "Transcribing") == 0;
-        UpdateMotion();
     }
 
     void SetEmotion(const char* emotion) override {
-        // Keep the website portrait instead of switching back to upstream emoji.
+        // Keep the website portrait static in every voice state.
         DisplayLockGuard lock(this);
-        sleeping_ = strcmp(emotion, "sleepy") == 0;
         error_detail_ = strcmp(emotion, "cancel") == 0;
-        UpdateMotion();
     }
 
     void SetChatMessage(const char* role, const char* content) override {
@@ -121,7 +114,6 @@ protected:
 private:
     lv_obj_t* clock_label_ = nullptr;
     lv_image_dsc_t portrait_ = {};
-    bool sleeping_ = false, motion_requested_ = false, motion_running_ = false;
     bool error_detail_ = false;
 
     void ApplyLayout() {
@@ -161,28 +153,5 @@ private:
         lv_obj_align(low_battery_popup_, LV_ALIGN_BOTTOM_MID, 0, -32);
     }
 
-    void UpdateMotion() {
-        const bool animate = motion_requested_ && !sleeping_ && !error_detail_;
-        if (!emoji_box_ || animate == motion_running_)
-            return;
-        lv_anim_delete(emoji_box_, nullptr);
-        lv_obj_set_style_translate_y(emoji_box_, 0, 0);
-        motion_running_ = animate;
-        if (!animate)
-            return;
-        // Two-pixel breathing motion reuses one image. No GIF decoder, extra
-        // frame buffers, timer task, or microphone/amplitude sampling is needed.
-        lv_anim_t animation;
-        lv_anim_init(&animation);
-        lv_anim_set_var(&animation, emoji_box_);
-        lv_anim_set_values(&animation, 0, -2);
-        lv_anim_set_duration(&animation, 1300);
-        lv_anim_set_reverse_duration(&animation, 1300);
-        lv_anim_set_repeat_count(&animation, LV_ANIM_REPEAT_INFINITE);
-        lv_anim_set_exec_cb(&animation, [](void* object, int32_t value) {
-            lv_obj_set_style_translate_y(static_cast<lv_obj_t*>(object), value, 0);
-        });
-        lv_anim_start(&animation);
-    }
 };
 #endif  // CONFIG_SABRINA_VOICE
