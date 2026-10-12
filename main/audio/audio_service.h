@@ -39,7 +39,13 @@
 
 #define OPUS_FRAME_DURATION_MS 60
 #define MAX_ENCODE_TASKS_IN_QUEUE 2
+#if CONFIG_SABRINA_VOICE
+// 400 ms of 20 ms PCM blocks covers ACK/network latency without accumulating
+// a reply. Output blocks stay short so an interrupt can flush queued speech.
+#define MAX_PLAYBACK_TASKS_IN_QUEUE 20
+#else
 #define MAX_PLAYBACK_TASKS_IN_QUEUE 2
+#endif
 #define MAX_DECODE_PACKETS_IN_QUEUE (1200 / OPUS_FRAME_DURATION_MS)
 #define MAX_SEND_PACKETS_IN_QUEUE (2400 / OPUS_FRAME_DURATION_MS)
 #define AUDIO_TESTING_MAX_DURATION_MS 10000

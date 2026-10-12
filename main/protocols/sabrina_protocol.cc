@@ -595,13 +595,16 @@ bool SabrinaProtocol::AcknowledgeAudio() {
 }
 
 void SabrinaProtocol::PumpPlayback() {
-    if (playback_offset_ >= playback_.size())
-        return;
-    size_t bytes = std::min<size_t>(960, playback_.size() - playback_offset_);  // 20 ms at 24 kHz
-    // vector<uint8_t> storage is not specified to be aligned for int16_t.
-    int16_t pcm[480];
-    memcpy(pcm, playback_.data() + playback_offset_, bytes);
-    if (audio_.PushPcmPlayback(pcm, bytes / 2, playback_generation_)) {
+    // Prime the bounded queue promptly, rather than waiting another worker tick
+    // per block. At most ten 20 ms blocks belong to the one 9,600-byte chunk;
+    // queue backpressure returns immediately so controls remain serviceable.
+    while (playback_offset_ < playback_.size()) {
+        size_t bytes = std::min<size_t>(960, playback_.size() - playback_offset_);
+        // vector<uint8_t> storage is not specified to be aligned for int16_t.
+        int16_t pcm[480];
+        memcpy(pcm, playback_.data() + playback_offset_, bytes);
+        if (!audio_.PushPcmPlayback(pcm, bytes / 2, playback_generation_))
+            return;
         playback_offset_ += bytes;
         queued_bytes_ += bytes;
         if (playback_offset_ == playback_.size()) {
@@ -610,6 +613,7 @@ void SabrinaProtocol::PumpPlayback() {
             // The bounded playback queue owns every sample before granting the
             // server permission to send the next chunk. Never ACK on receipt.
             AcknowledgeAudio();
+            return;
         }
     }
 }
