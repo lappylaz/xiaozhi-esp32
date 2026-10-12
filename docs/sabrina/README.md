@@ -92,6 +92,11 @@ request. Backend ownership checks remain authoritative on reconnect.
    and increase by exactly one, up to INT32_MAX. The adapter handles WebSocket
    frame/event fragmentation, checks format and optional sequence numbers, and
    feeds 20 ms PCM slices with backpressure into the maintained speaker queue.
+   Sabrina uses 20 queue slots (400 ms / 19,200 PCM bytes), plus at most one
+   in-flight output block. Each worker pass fills available slots promptly from
+   its one bounded chunk; it does not sleep between individual slice submissions.
+   This retains audio across ACK/network delays without storing an entire reply.
+   Non-Sabrina builds retain the original two-slot queue.
    Only after the entire chunk has entered that queue does it send
    `{"type":"audio_ack","chunk_id":N}`. The server keeps one chunk outstanding.
    Only the first chunk of each original audio event carries its `seq`; continuation
@@ -186,6 +191,13 @@ IDs, controls during blocked playback, discarded followup ACKs, and the previous
 interruption/capture regression. Physical sustained speech and reconnect
 acceptance must still be repeated on the installed image.
 
+`test_sabrina_pacing.py` runs the actual worker/message/ACK methods against a
+timed 24 kHz speaker model with the configured queue capacity. It verifies zero
+modeled starvation at 0/80/120/160 ms chunk delays, including five minutes of
+streaming, a partial final chunk, and a stalled speaker. This is timing-model
+evidence, not a physical acoustic measurement or a guarantee for arbitrary
+network stalls.
+
 ## AiPi screen and local clock
 
 The Sabrina-only AiPi display uses a dedicated 128 x 128 layout: an Eastern
@@ -208,9 +220,8 @@ The shared assets partition stays unchanged. Reproduce the pixel conversion with
 ffmpeg -i sabrina-icon.png -vf 'scale=76:80:flags=lanczos' -f rawvideo -pix_fmt bgra sabrina-avatar.bgra
 ```
 
-A two-pixel breathing motion runs only while listening, transcribing, thinking,
-or speaking. Idle and sleep are static. It reuses one image through LVGL;
-there is no GIF decoder, extra frame sequence, or audio sampling for animation.
+The portrait is static in all voice states. There is no portrait animation,
+GIF decoder, extra frame sequence, or audio sampling for animation.
 Other boards and Sabrina-disabled AiPi builds retain their original screen and
-clock behavior. Physical readability, orientation and animation still require
+clock behavior. Physical readability, orientation and audio still require
 checking the installed device.
