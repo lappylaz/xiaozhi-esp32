@@ -1,0 +1,19 @@
+{
+  "source_commit": "dcda651bed4db413b3fd04049c5dc1f6fb06bd40",
+  "app_bytes": 2714960,
+  "app_sha256": "67b8172752c5cfd36fe6e9d559838127381d645fadfa0fd0acb92e2b583c2c6e",
+  "enabled_and_disabled_builds": "PASS",
+  "source_inputs_compared": 1630,
+  "updater_tests": 13,
+  "installed": false,
+  "backend_deployed": false,
+  "physical_acceptance": "pending",
+  "backend_requirement": "audio_flow=ack_v1 deployed before firmware installation",
+  "host_tests": 110,
+  "production_method_host_tests": 6,
+  "stream_simulation_minutes": 5,
+  "assets_sha256": "7820c577020e272688330147c3a8d5ee3fee5c84dfa0fc53569470a630e7b2eb",
+  "disabled_app_sha256": "3050ab4b844469b202a2306fd084f3437be583c20483355536fc2d7b63ebecc2",
+  "operator_accepted_on_previous_source": "speaker quality and replacement-prompt interruption on 1074e44",
+  "physical_long_reply_acceptance": "pending"
+}
