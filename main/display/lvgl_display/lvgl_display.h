@@ -51,8 +51,10 @@ protected:
 
     std::chrono::system_clock::time_point last_status_update_time_;
     esp_timer_handle_t notification_timer_ = nullptr;
-    int last_displayed_clock_min_ = -1;   // -1 forces update on first idle tick
+    int last_displayed_clock_min_ = -1;  // -1 forces update on first idle tick
     std::unique_ptr<DynamicGlyphCache> dynamic_glyph_cache_;
+
+    virtual void UpdateClock(bool update_all);
 
     friend class DisplayLockGuard;
     virtual bool Lock(int timeout_ms = 0) = 0;

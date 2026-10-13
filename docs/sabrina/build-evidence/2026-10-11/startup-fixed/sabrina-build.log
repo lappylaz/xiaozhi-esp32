@@ -1,0 +1,50 @@
+Checking "python3" ...
+Python 3.14.4
+"python3" has been detected
+Activating ESP-IDF 6.1
+Setting IDF_PATH to '/private/tmp/esp-idf-aipi-20261011'.
+* Checking python version ... 3.12.12
+* Checking python dependencies ... OK
+* Deactivating the current ESP-IDF environment (if any) ... OK
+* Establishing a new ESP-IDF environment ... OK
+* Identifying shell ... bash
+* Detecting outdated tools in system ... OK - no outdated tools found
+* Shell completion ... Autocompletion code generated
+WARNING: Failed to load shell autocompletion for bash version: 3.2.57(1)-release!
+
+Done! You can now compile ESP-IDF projects.
+Go to the project directory and run:
+
+  idf.py build
+[0/2] Re-checking globbed directories...
+[1/11] Performing build step for 'bootloader'
+[1/1] cd /private/tmp/aipi-build-20261011/integration/build/bootloader && /private/tmp/aipi-idf-tools-20261011/python_env/idf6.1_py3.12_env/bin/python /private/tmp/esp-idf-aipi-20261011/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /private/tmp/aipi-build-20261011/integration/build/bootloader/bootloader.bin
+Bootloader binary size 0x4160 bytes. 0x3ea0 bytes (49%) free.
+[2/11] No install step for 'bootloader'
+[3/11] Completed 'bootloader'
+[4/11] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/protocols/sabrina_startup.cc.obj
+[5/11] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/application.cc.obj
+[6/11] Linking C static library esp-idf/main/libmain.a
+[7/11] Generating esp-idf/esp_system/ld/sections.ld
+Skipping linker script generation, section names unchanged
+[8/11] Linking CXX executable xiaozhi.elf
+[9/11] Generating binary image from built executable
+esptool v5.5.0
+Creating ESP32-S3 image...
+Merged 4 ELF sections.
+Successfully created ESP32-S3 image.
+Generated /private/tmp/aipi-build-20261011/integration/build/xiaozhi.bin
+[10/11] cd /private/tmp/aipi-build-20261011/integration/build && /private/tmp/aipi-idf-tools-20261011/python_env/idf6.1_py3.12_env/bin/python /private/tmp/esp-idf-aipi-20261011/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /private/tmp/aipi-build-20261011/integration/build/partition_table/partition-table.bin /private/tmp/aipi-build-20261011/integration/build/xiaozhi.bin
+xiaozhi.bin binary size 0x296730 bytes. Smallest app partition is 0x3f0000 bytes. 0x1598d0 bytes (34%) free.
+Executing action: all (aliases: build)
+Running ninja in directory /private/tmp/aipi-build-20261011/integration/build
+Executing "ninja all"...
+
+Project build complete. To flash, run:
+ idf.py flash
+or
+ idf.py -p PORT flash
+or
+ python -m esptool --chip esp32s3 -b 460800 --before default-reset --after hard-reset write-flash --flash-mode dio --flash-size 16MB --flash-freq 80m 0x0 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin 0xd000 build/ota_data_initial.bin 0x20000 build/xiaozhi.bin 0x800000 build/generated_assets.bin
+or from the "/private/tmp/aipi-build-20261011/integration/build" directory
+ python -m esptool --chip esp32s3 -b 460800 --before default-reset --after hard-reset write-flash "@flash_args"

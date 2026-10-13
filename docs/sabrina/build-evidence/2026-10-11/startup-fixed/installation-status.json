@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-11",
+  "provenance": "Installation and first-boot observations reported by the root hardware operator; build agent did not access USB.",
+  "source_commit": "79e5a236507bf1692b1dd4f7e20eb3eaa5b0a8c8",
+  "backend_deployed_commit": "b5632d90d",
+  "backend_live_checks": [
+    "authentication",
+    "STT",
+    "WebSocket",
+    "revocation"
+  ],
+  "backup": {
+    "encrypted": true,
+    "two_full_reads_match": true,
+    "plaintext_sha256": "8f9823299a64af488c3182a11965d5a13170f41ffba1a10eee5bae3e6006d499",
+    "plaintext_dump_created": false,
+    "encryption_key_storage": "macOS Keychain"
+  },
+  "installation": {
+    "status": "installed and first boot observed",
+    "write_readbacks_passed": true,
+    "app": {
+      "offset": "0x410000",
+      "bytes": 2713392,
+      "sha256": "2bc41459fa9da7118c0b82bf43f08d3012518556714d79aee51984c950a9b9ab"
+    },
+    "assets": {
+      "offset": "0x800000",
+      "file": "generated_assets.bin",
+      "bytes": 307037,
+      "sha256": "7820c577020e272688330147c3a8d5ee3fee5c84dfa0fc53569470a630e7b2eb"
+    },
+    "ota_selector": {
+      "sector_offset": "0xe000",
+      "sequence": 2,
+      "initial_state": "NEW",
+      "written_last": true
+    },
+    "preserved": [
+      "bootloader",
+      "partition table",
+      "NVS",
+      "old ota_0 application",
+      "first OTA metadata sector"
+    ]
+  },
+  "first_boot_observations": [
+    "ESP-IDF 6.1 application booted",
+    "ES8311 codec and AFE WebRTC initialized",
+    "local assets applied",
+    "successful new/pending image acceptance logged",
+    "existing Wi-Fi reconnected"
+  ],
+  "pending": [
+    "physical GPIO42 provisioning window",
+    "permanent device credential provisioning and receipt",
+    "board public TLS and authenticated Sabrina turn",
+    "microphone and speaker physical acceptance",
+    "interruption/reconnection and sustained voice acceptance"
+  ],
+  "credential_state": "Permanent scoped credential held in Keychain, not yet provisioned to board at this checkpoint.",
+  "physical_voice_acceptance": false,
+  "rollback_note": "Assets partition is shared: reverting the application also requires restoring matching original assets. Preserve encrypted full recovery backup."
+}

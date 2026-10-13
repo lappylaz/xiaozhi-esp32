@@ -213,26 +213,7 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
         }
     }
 
-    // Update time — show HH:MM when idle; refresh immediately on state
-    // transitions (update_all=true) and on every minute change thereafter.
-    if (app.GetDeviceState() == kDeviceStateIdle) {
-        time_t now = time(NULL);
-        struct tm* tm_now = localtime(&now);
-        if (tm_now->tm_year >= 2025 - 1900) {
-            int cur_min = tm_now->tm_hour * 60 + tm_now->tm_min;
-            if (update_all || cur_min != last_displayed_clock_min_) {
-                last_displayed_clock_min_ = cur_min;
-                char time_str[16];
-                strftime(time_str, sizeof(time_str), "%H:%M", tm_now);
-                SetStatus(time_str);
-            }
-        } else {
-            ESP_LOGW(TAG, "System time not set (tm_year=%d)", tm_now->tm_year);
-        }
-    } else {
-        // Reset so the clock re-appears immediately when idle resumes.
-        last_displayed_clock_min_ = -1;
-    }
+    UpdateClock(update_all);
 
     esp_pm_lock_acquire(pm_lock_);
     // Update battery icon
@@ -304,6 +285,30 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
     }
 
     esp_pm_lock_release(pm_lock_);
+}
+
+void LvglDisplay::UpdateClock(bool update_all) {
+    auto& app = Application::GetInstance();
+    // Update time — show HH:MM when idle; refresh immediately on state
+    // transitions (update_all=true) and on every minute change thereafter.
+    if (app.GetDeviceState() == kDeviceStateIdle) {
+        time_t now = time(NULL);
+        struct tm* tm_now = localtime(&now);
+        if (tm_now->tm_year >= 2025 - 1900) {
+            int cur_min = tm_now->tm_hour * 60 + tm_now->tm_min;
+            if (update_all || cur_min != last_displayed_clock_min_) {
+                last_displayed_clock_min_ = cur_min;
+                char time_str[16];
+                strftime(time_str, sizeof(time_str), "%H:%M", tm_now);
+                SetStatus(time_str);
+            }
+        } else {
+            ESP_LOGW(TAG, "System time not set (tm_year=%d)", tm_now->tm_year);
+        }
+    } else {
+        // Reset so the clock re-appears immediately when idle resumes.
+        last_displayed_clock_min_ = -1;
+    }
 }
 
 void LvglDisplay::SetPreviewImage(std::unique_ptr<LvglImage> image) {}

@@ -1,0 +1,70 @@
+{
+  "status": "passed",
+  "source_commit": "79e5a236507bf1692b1dd4f7e20eb3eaa5b0a8c8",
+  "source_content_verified_against_commit": true,
+  "upstream_sha": "49b4380b3faa0ceadd28a3e78aaf0f311c46c57e",
+  "idf_sha": "fff9895c82d744c7237be8847347bdd1b07c6643",
+  "source_manifest_sha256": "ebc85b20bbbe3ba374a0e78188f5153e40ddbeb56a5740c61796260e90aee39f",
+  "sdkconfig_sha256": "aa0e49fb87a0d9c289304627d966d9347b4f0db6505b739e020778675bf022bf",
+  "dependencies_lock_sha256": "67a99ad0838973849f9cbf7bbdcc36cf960f9c7a9fe8a15944c301d859c11dec",
+  "binary_bytes": 2697792,
+  "binary_sha256": "3050ab4b844469b202a2306fd084f3437be583c20483355536fc2d7b63ebecc2",
+  "sabrina_enabled": false,
+  "config_assertions": [
+    "CONFIG_BOARD_TYPE_XORIGIN_AIPI_LITE=y",
+    "CONFIG_WAKE_WORD_DISABLED=y",
+    "# CONFIG_SABRINA_VOICE is not set"
+  ],
+  "compile_assertions": [
+    "Upstream MQTT and WebSocket sources compiled",
+    "Sabrina protocol/provisioning excluded",
+    "No MicroLink or Tailscale inputs"
+  ],
+  "build_working_directory": "/private/tmp/aipi-build-20261011/stock-modified",
+  "final_build_command": "/private/tmp/aipi-build-20261011/with-idf.sh idf.py build",
+  "sdkconfig_defaults_order": [
+    "sdkconfig.defaults",
+    "sdkconfig.defaults.esp32s3",
+    "/private/tmp/aipi-build-20261011/upstream/build/xiaozhi-build.sdkconfig.defaults"
+  ],
+  "sdkconfig_defaults_sha256": {
+    "sdkconfig.defaults": "c11d0c8d6ff4100947deb7b7f1b07682784f782ec3f47c2cbfaea9ef5b8ed0e9",
+    "sdkconfig.defaults.esp32s3": "315d65976815214c463cb605b2242c4f40e2bff078bcc1341d2f71892a3a7797",
+    "/private/tmp/aipi-build-20261011/upstream/build/xiaozhi-build.sdkconfig.defaults": "81a76830ef619f6776ef740fc285451827c9d9a6ca7f18d1227f912cc90f5713"
+  },
+  "final_build_exit_code": 0,
+  "device_flashing": false,
+  "runtime_verification": false,
+  "tracked_source_files": 1759,
+  "configured_build_command": "/private/tmp/aipi-build-20261011/with-idf.sh idf.py -DIDF_TARGET=esp32s3 '-DSDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.esp32s3;/private/tmp/aipi-build-20261011/upstream/build/xiaozhi-build.sdkconfig.defaults' -DBOARD_NAME=aipi-lite build",
+  "build_log": "/private/tmp/aipi-build-20261011/stock-startup-final-build.log",
+  "boot_readiness_fix": "Local assets apply + idle audio readiness + checked NEW/PENDING_VERIFY acceptance before network startup",
+  "generated_artifacts": {
+    "0x0": {
+      "file": "bootloader/bootloader.bin",
+      "bytes": 16736,
+      "sha256": "b2e54d4cdb4b9c60c0cff85b50abc2d88632b7368cf4f833b6b0aea0aebbb295"
+    },
+    "0x8000": {
+      "file": "partition_table/partition-table.bin",
+      "bytes": 3072,
+      "sha256": "4811619cacae08ef2e0e71b7220c6033a346ca5da7ca179082408c963ef530b5"
+    },
+    "0xd000": {
+      "file": "ota_data_initial.bin",
+      "bytes": 8192,
+      "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f"
+    },
+    "0x800000": {
+      "file": "generated_assets.bin",
+      "bytes": 307037,
+      "sha256": "7820c577020e272688330147c3a8d5ee3fee5c84dfa0fc53569470a630e7b2eb"
+    },
+    "0x20000": {
+      "file": "xiaozhi.bin",
+      "bytes": 2697792,
+      "sha256": "3050ab4b844469b202a2306fd084f3437be583c20483355536fc2d7b63ebecc2"
+    }
+  },
+  "generated_artifact_offsets_note": "Generated default flasher layout only. Root installation plan uses inactive app offset0x410000 and separate OTA selector; no flash performed by build agent."
+}

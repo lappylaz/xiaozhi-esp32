@@ -39,7 +39,13 @@
 
 #define OPUS_FRAME_DURATION_MS 60
 #define MAX_ENCODE_TASKS_IN_QUEUE 2
+#if CONFIG_SABRINA_VOICE
+// 400 ms of 20 ms PCM blocks covers ACK/network latency without accumulating
+// a reply. Output blocks stay short so an interrupt can flush queued speech.
+#define MAX_PLAYBACK_TASKS_IN_QUEUE 20
+#else
 #define MAX_PLAYBACK_TASKS_IN_QUEUE 2
+#endif
 #define MAX_DECODE_PACKETS_IN_QUEUE (1200 / OPUS_FRAME_DURATION_MS)
 #define MAX_SEND_PACKETS_IN_QUEUE (2400 / OPUS_FRAME_DURATION_MS)
 #define AUDIO_TESTING_MAX_DURATION_MS 10000
@@ -147,10 +153,20 @@ public:
     bool ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples);
     void ResetDecoder();
     void SetModelsList(srmodel_list_t* models_list);
+    // Prepare idle voice resources after the local asset bundle is applied.
+    // Does not enable recording, playback or network access.
+    bool PrepareLocalVoice();
+    // Installed before capture starts. The callback receives post-AFE 16 kHz mono PCM.
+    void SetPcmCaptureCallback(std::function<void(const std::vector<int16_t>&)> callback);
+    void StopPcmCaptureAndFlush();
+    bool PushPcmPlayback(const int16_t* data, size_t samples, uint32_t generation);
+    uint32_t PlaybackGeneration();
 
 private:
     AudioCodec* codec_ = nullptr;
     AudioServiceCallbacks callbacks_;
+    std::function<void(const std::vector<int16_t>&)> pcm_capture_callback_;
+    std::mutex audio_feed_mutex_;
     std::unique_ptr<AudioEngine> audio_engine_;
     std::unique_ptr<AudioDebugger> audio_debugger_;
     void* opus_encoder_ = nullptr;

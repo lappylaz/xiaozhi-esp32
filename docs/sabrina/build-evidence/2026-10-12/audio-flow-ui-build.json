@@ -1,0 +1,20 @@
+{
+  "source_commit": "1517d577f90791c4f1e09065bd5748bcc2341705",
+  "app_bytes": 2741936,
+  "app_sha256": "3a05d32d333085dd1edcddbece9e1d857d7df0a53fafe89049701a324fdf80a4",
+  "builds": "enabled and disabled PASS",
+  "source_inputs_compared": 1633,
+  "host_tests": 110,
+  "focused_tests": 7,
+  "review": "CLEAR",
+  "installed": false,
+  "physical_acceptance": "pending",
+  "features": [
+    "ack_v1 bounded PCM",
+    "bottom status",
+    "Eastern DST clock",
+    "website portrait animation"
+  ],
+  "assets_sha256": "7820c577020e272688330147c3a8d5ee3fee5c84dfa0fc53569470a630e7b2eb",
+  "updater_tests": 13
+}

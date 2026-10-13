@@ -1,0 +1,15 @@
+{
+  "source": "Authenticated backup comparison performed in memory; no USB",
+  "backup_plaintext_sha256": "8f9823299a64af488c3182a11965d5a13170f41ffba1a10eee5bae3e6006d499",
+  "installed_bootloader_bytes": 16464,
+  "installed_bootloader_sha256": "967a437980f896669d5a81618d5eec91a72a4b0d31c260515d1710da485e7b73",
+  "historical_binary_byte_exact_match": true,
+  "trailing_padding_through_0x8000_all_ff": true,
+  "historical_config_path": "/Users/bblair/Documents/Nuvotech/sabrina-aipi-firmware/build/bootloader/config/sdkconfig.h",
+  "historical_config_sha256": "890c6e54c206242046cf26fbc8f064a52ffd21f40802dc248e0de94c7650be6f",
+  "rollback_define_present": true,
+  "historical_config_line": 403,
+  "installed_idf": "v5.5.2",
+  "flash_settings": "16MB DIO80MHz",
+  "comparison_scope": "bootloader region only; no NVS bytes exposed"
+}

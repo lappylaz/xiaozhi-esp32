@@ -20,11 +20,14 @@
 #include "power_save_timer.h"
 #include "system_reset.h"
 #include "wifi_board.h"
+#if CONFIG_SABRINA_VOICE
+#include "sabrina_display.h"
+#endif
 
 #define TAG "AIPI-Lite"
 
 class AIPILite : public WifiBoard {
-   private:
+private:
     i2c_master_bus_handle_t i2c_bus_;
     Button boot_button_;
     Button power_button_;
@@ -89,10 +92,8 @@ class AIPILite : public WifiBoard {
         buscfg.sclk_io_num = DISPLAY_SPI_SCLK_PIN;
         buscfg.quadwp_io_num = GPIO_NUM_NC;
         buscfg.quadhd_io_num = GPIO_NUM_NC;
-        buscfg.max_transfer_sz =
-            DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(uint16_t);
-        ESP_ERROR_CHECK(
-            spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
+        buscfg.max_transfer_sz = DISPLAY_WIDTH * DISPLAY_HEIGHT * sizeof(uint16_t);
+        ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO));
     }
 
     void InitializeLcdDisplay() {
@@ -107,8 +108,7 @@ class AIPILite : public WifiBoard {
         io_config.trans_queue_depth = 10;
         io_config.lcd_cmd_bits = 8;
         io_config.lcd_param_bits = 8;
-        ESP_ERROR_CHECK(
-            esp_lcd_new_panel_io_spi(SPI3_HOST, &io_config, &panel_io));
+        ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI3_HOST, &io_config, &panel_io));
 
         // 初始化液晶屏驱动芯片
         ESP_LOGD(TAG, "Install LCD driver");
@@ -116,8 +116,7 @@ class AIPILite : public WifiBoard {
         panel_config.reset_gpio_num = DISPLAY_SPI_RESET_PIN;
         panel_config.rgb_ele_order = DISPLAY_RGB_ORDER;
         panel_config.bits_per_pixel = 16;
-        ESP_ERROR_CHECK(
-            esp_lcd_new_panel_st7789(panel_io, &panel_config, &panel_));
+        ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(panel_io, &panel_config, &panel_));
 
         esp_lcd_panel_reset(panel_);
 
@@ -125,13 +124,27 @@ class AIPILite : public WifiBoard {
         esp_lcd_panel_invert_color(panel_, DISPLAY_INVERT_COLOR);
         esp_lcd_panel_swap_xy(panel_, DISPLAY_SWAP_XY);
         esp_lcd_panel_mirror(panel_, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
-        display_ = new SpiLcdDisplay(panel_io, panel_, DISPLAY_WIDTH,
-                                     DISPLAY_HEIGHT, DISPLAY_OFFSET_X,
-                                     DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X,
-                                     DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
+#if CONFIG_SABRINA_VOICE
+        using BoardDisplay = SabrinaAiPiDisplay;
+#else
+        using BoardDisplay = SpiLcdDisplay;
+#endif
+        display_ =
+            new BoardDisplay(panel_io, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X,
+                             DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 
     void InitializeButtons() {
+#if CONFIG_SABRINA_VOICE
+        boot_button_.OnPressDown([this]() {
+            power_save_timer_->WakeUp();
+            Application::GetInstance().StartListening();
+        });
+        boot_button_.OnPressUp([]() { Application::GetInstance().StopListening(); });
+        // Long speech must not erase Wi-Fi settings. Deliberate triple-click
+        // retains the upstream provisioning entry without colliding with PTT.
+        boot_button_.OnMultipleClick([this]() { EnterWifiConfigMode(); }, 3);
+#else
         boot_button_.OnClick([this]() {
             power_save_timer_->WakeUp();
             auto& app = Application::GetInstance();
@@ -156,12 +169,12 @@ class AIPILite : public WifiBoard {
             EnterWifiConfigMode();
         });
 
+#endif
         power_button_.OnClick([this]() { power_save_timer_->WakeUp(); });
         power_button_.OnLongPress([this]() {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() != kDeviceStateStarting &&
-                !(power_manager_->IsCharging() &&
-                  power_manager_->GetBatteryLevel() < 100)) {
+                !(power_manager_->IsCharging() && power_manager_->GetBatteryLevel() < 100)) {
                 ESP_LOGI(TAG, "Power button long pressed, shutting down");
                 esp_lcd_panel_disp_on_off(panel_, false);  // 关闭显示
                 rtc_gpio_set_level(POWER_CONTROL_PIN, 0);
@@ -181,9 +194,13 @@ class AIPILite : public WifiBoard {
     // 物联网初始化，添加对 AI 可见设备
     void InitializeTools() {}
 
-   public:
-    AIPILite()
-        : boot_button_(BOOT_BUTTON_GPIO), power_button_(POWER_BUTTON_GPIO) {
+public:
+    AIPILite() : boot_button_(BOOT_BUTTON_GPIO), power_button_(POWER_BUTTON_GPIO) {
+#if CONFIG_SABRINA_VOICE
+        // US Eastern local display time; SNTP and TLS continue to use UTC epoch.
+        setenv("TZ", sabrina::kEasternTimezone, 1);
+        tzset();
+#endif
         InitializePowerCtl();
         InitializePowerManager();
         InitializePowerSaveTimer();
@@ -204,10 +221,9 @@ class AIPILite : public WifiBoard {
 
     virtual AudioCodec* GetAudioCodec() override {
         static Es8311AudioCodec audio_codec(
-            i2c_bus_, I2C_NUM_0, AUDIO_INPUT_SAMPLE_RATE,
-            AUDIO_OUTPUT_SAMPLE_RATE, AUDIO_I2S_GPIO_MCLK, AUDIO_I2S_GPIO_BCLK,
-            AUDIO_I2S_GPIO_WS, AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN,
-            AUDIO_CODEC_PA_PIN, AUDIO_CODEC_ES8311_ADDR, false);
+            i2c_bus_, I2C_NUM_0, AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
+            AUDIO_I2S_GPIO_MCLK, AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS, AUDIO_I2S_GPIO_DOUT,
+            AUDIO_I2S_GPIO_DIN, AUDIO_CODEC_PA_PIN, AUDIO_CODEC_ES8311_ADDR, false);
         return &audio_codec;
     }
 
@@ -215,15 +231,13 @@ class AIPILite : public WifiBoard {
 
     virtual Backlight* GetBacklight() override {
         if (DISPLAY_BACKLIGHT_PIN != GPIO_NUM_NC) {
-            static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN,
-                                          DISPLAY_BACKLIGHT_OUTPUT_INVERT);
+            static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
             return &backlight;
         }
         return nullptr;
     }
 
-    virtual bool GetBatteryLevel(int& level, bool& charging,
-                                 bool& discharging) override {
+    virtual bool GetBatteryLevel(int& level, bool& charging, bool& discharging) override {
         static bool last_discharging = false;
         charging = power_manager_->IsCharging();
         discharging = power_manager_->IsDischarging();

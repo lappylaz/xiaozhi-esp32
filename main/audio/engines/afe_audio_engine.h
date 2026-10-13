@@ -31,6 +31,7 @@ public:
     void EnableWakeWordDetection(bool enable) override;
     void EnableVoiceProcessing(bool enable) override;
     void EnableDeviceAec(bool enable) override;
+    void StopVoiceProcessingAndFlush() override;
 
     bool HasWakeWord() const override;
     bool IsWakeWordDetectionEnabled() const override;
@@ -86,6 +87,7 @@ private:
     std::string last_detected_wake_word_;
     std::vector<int16_t> input_buffer_;
     std::vector<int16_t> output_buffer_;
+    std::mutex output_mutex_;
     std::mutex input_buffer_mutex_;
 
     std::function<void(const std::string&)> wake_word_detected_callback_;

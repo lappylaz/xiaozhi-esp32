@@ -1,0 +1,15 @@
+{
+  "runtime_source": "ebef8b31596ffb5e13edc9e8b9534a1c2ba1ca02",
+  "app_bytes": 2741840,
+  "app_sha256": "d2614fc4321484118da1b15c4b368cd08eca3f8388dfde757cadfab7c31d68b0",
+  "sdk": "ESP-IDF 6.1",
+  "enabled_build": "PASS",
+  "disabled_build": "PASS",
+  "matching_source_inputs_per_snapshot": 1716,
+  "build_tool_tests": 110,
+  "focused_tests": 9,
+  "sanitizers": ["address", "undefined"],
+  "regression": "Pre-change production worker remained offline after transport loss; patched worker reconnects without capture or transcript replay.",
+  "coverage": ["disconnect and clean close", "retained session ID", "1/2/4/8/16/30-second capped retry delays", "HTTP401/403 and close4001/4002 refusal", "certificate refusal", "heartbeat and send failure", "handshake timeout", "stale transcription and PCM invalidation", "concurrent press", "explicit close cancels retries", "existing interruption and delayed PCM pacing"],
+  "limits": "Host transport/audio boundaries model failures. These tests do not certify physical Wi-Fi outage recovery or speaker quality. Installation is recorded separately."
+}

@@ -471,6 +471,9 @@ void AfeAudioEngine::HandleWakeWordResult(const afe_fetch_result_t* result) {
 }
 
 void AfeAudioEngine::HandleVoiceResult(const afe_fetch_result_t* result) {
+    std::lock_guard<std::mutex> output_lock(output_mutex_);
+    if (!IsVoiceProcessingEnabled())
+        return;
     if (output_reset_pending_.exchange(false)) {
         output_buffer_.clear();
     }
@@ -503,6 +506,9 @@ void AfeAudioEngine::HandleVoiceResult(const afe_fetch_result_t* result) {
 }
 
 void AfeAudioEngine::OutputRawAudio(const std::vector<int16_t>& data) {
+    std::lock_guard<std::mutex> output_lock(output_mutex_);
+    if (!IsVoiceProcessingEnabled())
+        return;
     if (!output_callback_ || codec_ == nullptr) {
         return;
     }
@@ -627,4 +633,16 @@ bool AfeAudioEngine::GetWakeWordOpus(std::vector<uint8_t>& opus) {
     opus.swap(wake_word_opus_.front());
     wake_word_opus_.pop_front();
     return !opus.empty();
+}
+
+void AfeAudioEngine::StopVoiceProcessingAndFlush() {
+    // Serialize final processed samples with the output-producing task. Disable
+    // increments the upstream generation, so a pending old fetch cannot leak into
+    // a subsequent press. Unprocessed AFE input is discarded at this boundary.
+    std::lock_guard<std::mutex> output_lock(output_mutex_);
+    EnableVoiceProcessing(false);
+    if (!output_buffer_.empty() && output_callback_) {
+        output_callback_(std::move(output_buffer_));
+        output_buffer_.clear();
+    }
 }

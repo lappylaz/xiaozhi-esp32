@@ -11,6 +11,10 @@
 #include "system_info.h"
 #include "text_glyph_payload.h"
 #include "websocket_protocol.h"
+#if CONFIG_SABRINA_VOICE
+#include "sabrina_protocol.h"
+#include "sabrina_startup.h"
+#endif
 
 #include <driver/gpio.h>
 #include <esp_log.h>
@@ -92,6 +96,12 @@ void Application::Initialize() {
         notify_player_.OnPlaybackProgress(playback_id, media_position_ms);
     };
     audio_service_.SetCallbacks(callbacks);
+
+#if CONFIG_SABRINA_VOICE
+    // Local acceptance precedes Wi-Fi and key provisioning checks. A bad local
+    // image must not be certified. Recovery depends on the installed bootloader.
+    ESP_ERROR_CHECK(PrepareSabrinaLocalStartup(audio_service_) ? ESP_OK : ESP_FAIL);
+#endif
 
     // Add state change listeners
     state_machine_.AddStateChangeListener([this](DeviceState old_state, DeviceState new_state) {
@@ -336,7 +346,7 @@ void Application::HandleActivationDoneEvent() {
     SystemInfo::PrintHeapStats();
     SetDeviceState(kDeviceStateIdle);
 
-    has_server_time_ = ota_->HasServerTime();
+    has_server_time_ = ota_ && ota_->HasServerTime();
 
     // Protocol start may have already raised MAIN_EVENT_ERROR. Do not replace
     // that alert with the "ready" UI/sound — the main loop can process both
@@ -366,11 +376,13 @@ void Application::ActivationTask() {
     // Create OTA object for activation process
     ota_ = std::make_unique<Ota>();
 
+#if !CONFIG_SABRINA_VOICE
     // Check for new assets version
     CheckAssetsVersion();
 
     // Check for new firmware version
     CheckNewVersion();
+#endif
 
     // Initialize the protocol
     InitializeProtocol();
@@ -535,6 +547,9 @@ void Application::InitializeProtocol() {
 
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
+#if CONFIG_SABRINA_VOICE
+    protocol_ = std::make_unique<SabrinaProtocol>(audio_service_);
+#else
     if (ota_->HasMqttConfig()) {
         protocol_ = std::make_unique<MqttProtocol>();
     } else if (ota_->HasWebsocketConfig()) {
@@ -544,7 +559,8 @@ void Application::InitializeProtocol() {
         protocol_ = std::make_unique<MqttProtocol>();
     }
 
-    protocol_->OnConnected([this]() { DismissAlert(); });
+#endif
+    protocol_->OnConnected([this]() { Schedule([this]() { DismissAlert(); }); });
 
     protocol_->OnNetworkError([this](const std::string& message) {
         last_error_message_ = message;
@@ -708,10 +724,9 @@ void Application::InitializeProtocol() {
             if (cJSON_IsObject(payload)) {
                 CJsonStringUniquePtr payload_json(cJSON_PrintUnformatted(payload));
                 if (payload_json) {
-                    Schedule(
-                        [this, display, payload_str = std::string(payload_json.get())]() {
-                            display->SetChatMessage("system", payload_str.c_str());
-                        });
+                    Schedule([this, display, payload_str = std::string(payload_json.get())]() {
+                        display->SetChatMessage("system", payload_str.c_str());
+                    });
                 }
             } else {
                 ESP_LOGW(TAG, "Invalid custom message format: missing payload");
@@ -778,6 +793,10 @@ void Application::StartListening() { xEventGroupSetBits(event_group_, MAIN_EVENT
 void Application::StopListening() { xEventGroupSetBits(event_group_, MAIN_EVENT_STOP_LISTENING); }
 
 void Application::HandleToggleChatEvent() {
+#if CONFIG_SABRINA_VOICE
+    // AiPi uses physical press/release; legacy click toggles are not voice turns.
+    return;
+#endif
     auto state = GetDeviceState();
 
     if (state == kDeviceStateNotifying) {
@@ -842,6 +861,11 @@ void Application::ContinueOpenAudioChannel(ListeningMode mode) {
 }
 
 void Application::HandleStartListeningEvent() {
+#if CONFIG_SABRINA_VOICE
+    if (protocol_)
+        protocol_->SendStartListening(kListeningModeManualStop);
+    return;
+#endif
     auto state = GetDeviceState();
 
     if (state == kDeviceStateNotifying) {
@@ -878,6 +902,11 @@ void Application::HandleStartListeningEvent() {
 }
 
 void Application::HandleStopListeningEvent() {
+#if CONFIG_SABRINA_VOICE
+    if (protocol_)
+        protocol_->SendStopListening();
+    return;
+#endif
     auto state = GetDeviceState();
 
     if (state == kDeviceStateNotifying) {
@@ -1004,6 +1033,11 @@ void Application::HandleStateChangedEvent() {
     auto led = board.GetLed();
     led->OnStateChanged();
 
+#if CONFIG_SABRINA_VOICE
+    // SabrinaProtocol owns capture/playback and explicit thinking/draining state.
+    // Reusing Xiaozhi transitions here would reset a live PCM playback queue.
+    return;
+#endif
     switch (new_state) {
         case kDeviceStateUnknown:
         case kDeviceStateIdle:

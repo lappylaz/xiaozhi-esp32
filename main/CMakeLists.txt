@@ -43,6 +43,11 @@ set(SOURCES "audio/audio_codec.cc"
             "main.cc"
             )
 
+if(CONFIG_SABRINA_VOICE)
+    list(APPEND SOURCES "protocols/sabrina_protocol.cc" "protocols/sabrina_provisioning.cc"
+                        "protocols/sabrina_startup.cc")
+endif()
+
 set(INCLUDE_DIRS "." "display" "display/lvgl_display" "display/lvgl_display/jpg" "audio" "audio/demuxer" "protocols")
 
 # Add board common files
@@ -1094,6 +1099,9 @@ if(CONFIG_IDF_TARGET_ESP32S3)
 endif()
 
 set(MAIN_PRIV_REQUIRES_EXTRA "")
+if(CONFIG_SABRINA_VOICE)
+    list(APPEND MAIN_PRIV_REQUIRES_EXTRA esp_driver_usb_serial_jtag)
+endif()
 if(CONFIG_XIAOZHI_NETWORK_ETHERNET AND CONFIG_XIAOZHI_ETH_PHY_IP101)
     list(APPEND MAIN_PRIV_REQUIRES_EXTRA espressif__ip101)
 endif()
@@ -1124,6 +1132,7 @@ idf_component_register(SRCS ${SOURCES}
                     INCLUDE_DIRS ${INCLUDE_DIRS}
                     WHOLE_ARCHIVE
                     PRIV_REQUIRES
+                        esp_http_client
                         esp_pm
                         esp_psram
                         esp_netif
