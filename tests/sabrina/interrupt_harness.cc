@@ -118,6 +118,9 @@ public:
     std::atomic<bool> connected_{false}, disconnected_{false}, ingress_failed_{false},
         capture_failed_{false}, stt_running_{false};
     std::atomic<uint32_t> generation_{0};
+    std::atomic<int> transport_rejection_{0};
+    int64_t retry_at_ = 0;
+    unsigned retry_delay_seconds_ = 1;
     std::mutex recording_mutex_, ingress_mutex_, stt_mutex_;
     bool stt_done_ = false, error_occurred_ = false;
     std::string stt_text_, stt_error_, session_id_, ws_url_, stt_url_, device_key_;
@@ -183,6 +186,7 @@ public:
         error = true;
         stopping_ = true;
     }
+    void Recover(const char* text) { Fail(text); }
     void PollTranscription();
     void PumpPlayback();
     bool AcknowledgeAudio();

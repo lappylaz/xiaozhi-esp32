@@ -42,6 +42,7 @@ private:
     std::atomic<bool> pressed_{false}, press_pending_{false}, close_pending_{false};
     std::atomic<bool> ingress_failed_{false}, capture_failed_{false}, stt_running_{false};
     std::atomic<uint32_t> generation_{0};
+    std::atomic<int> transport_rejection_{0};
     std::mutex ingress_mutex_, recording_mutex_, stt_mutex_;
     std::deque<Message> inbox_;
     size_t inbox_bytes_ = 0;
@@ -56,6 +57,8 @@ private:
          turn_active_ = false, discard_audio_ = false;
     sabrina::ReleaseHangover release_hangover_{240000};
     int64_t state_at_ = 0, connection_at_ = 0, last_ping_ = 0, last_pong_ = 0;
+    int64_t retry_at_ = 0;
+    unsigned retry_delay_seconds_ = 1;
     int last_seq_ = -1;
     static constexpr size_t kAudioChunkBytes = 9600;
     int32_t last_chunk_id_ = 0, pending_chunk_id_ = 0;
@@ -66,6 +69,7 @@ private:
     void CloseSocket();
     void Cancel(bool start_recording = false);
     void Fail(const char* message);
+    void Recover(const char* reason);
     void SetState(State state);
     void BeginRecording();
     void EndRecording();

@@ -110,6 +110,23 @@ request. Backend ownership checks remain authoritative on reconnect.
    isolates late binary frames, which do not carry turn IDs in the backend
    protocol. A canceled STT result is rejected by generation.
 
+Transient disconnects (including clean socket closes), failed heartbeat/ACK sends,
+and session timeouts automatically retry after 1, 2, 4, 8, 16, then at most 30
+seconds. Authentication resets the delay. An explicit press can retry sooner.
+Recovery stops the interrupted recording/playback, invalidates its transcription,
+and resumes the server-issued conversation ID. It never automatically records or
+replays a request that may already have executed; repeat a lost question after
+**Hold button to talk** returns. HTTP 401/403, server authentication/protocol
+refusals (4001/4002), and certificate-verification failures stop automatic retries.
+Malformed audio/protocol messages also remain explicit failures. These are
+separate from transient network failures, and TLS verification is never disabled.
+
+`test_sabrina_reconnect.py` injects failures into production callback/worker/cleanup
+methods with host transport/audio boundaries. It covers clean close/disconnect,
+retained session ID, capped backoff, auth/TLS refusal, heartbeat/send/handshake
+failure, stale-turn invalidation, and a press concurrent with disconnect. This is
+host evidence; recovery after a real Wi-Fi outage still requires device acceptance.
+
 Capture is limited to 20 seconds / 640,000 PCM bytes. A recording that exceeds
 the cap fails explicitly, rather than submitting a truncated sentence. Socket
 messages are capped at 512 KiB and the inbox at 1 MiB / 128 messages. Overflow
@@ -172,7 +189,7 @@ Required physical acceptance:
 - Short/long holds, release during connection, rapid re-press and recording cap.
 - Multi-sentence playback under bursty delivery, correct final drain and no gaps.
 - Press interruption during thinking, STT and playback; no late old speech.
-- Wi-Fi loss and next-press reconnect; expired/revoked key rejects both routes.
+- Wi-Fi loss and automatic reconnect; expired/revoked key rejects both routes.
 - Multi-turn session continuity and spoken tool confirmations under the owner.
 - Sustained repeated conversations, with memory and received/enqueued counters.
 

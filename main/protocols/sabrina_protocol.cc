@@ -163,7 +163,16 @@ void SabrinaProtocol::SetState(State state) {
 
 void SabrinaProtocol::SocketEvent(void* arg, esp_event_base_t, int32_t id, void* data) {
     auto* self = static_cast<SabrinaProtocol*>(arg);
-    if (id == WEBSOCKET_EVENT_DISCONNECTED || id == WEBSOCKET_EVENT_ERROR) {
+    if (id == WEBSOCKET_EVENT_DISCONNECTED || id == WEBSOCKET_EVENT_ERROR ||
+        id == WEBSOCKET_EVENT_CLOSED) {
+        auto* event = static_cast<esp_websocket_event_data_t*>(data);
+        if (event) {
+            const int status = event->error_handle.esp_ws_handshake_status_code;
+            const int close = event->close_status_code;
+            if (status == 401 || status == 403 || close == 4001 || close == 4002 ||
+                event->error_handle.esp_tls_cert_verify_flags != 0)
+                self->transport_rejection_ = close ? close : (status ? status : -1);
+        }
         self->disconnected_ = true;
         return;
     }
@@ -224,7 +233,7 @@ bool SabrinaProtocol::Connect() {
         for (int i = 0; i < 150 && !stopping_ && time(nullptr) < 1735689600; ++i)
             vTaskDelay(pdMS_TO_TICKS(100));
         if (time(nullptr) < 1735689600) {
-            Fail("Clock sync failed. Check Wi-Fi and NTP access, then press again.");
+            Recover("clock_sync");
             return false;
         }
     }
@@ -245,11 +254,12 @@ bool SabrinaProtocol::Connect() {
     config.task_stack = 6144;
     config.ping_interval_sec = 15;
     disconnected_ = false;
+    transport_rejection_ = 0;
     socket_ = esp_websocket_client_init(&config);
     if (!socket_ ||
         esp_websocket_register_events(socket_, WEBSOCKET_EVENT_ANY, SocketEvent, this) != ESP_OK ||
         esp_websocket_client_start(socket_) != ESP_OK) {
-        Fail("Cannot start the secure Sabrina connection.");
+        Recover("socket_start");
         return false;
     }
     connection_at_ = esp_timer_get_time();
@@ -269,7 +279,9 @@ void SabrinaProtocol::CloseSocket() {
     assembler_.Reset();
     ingress_failed_ = false;
     disconnected_ = false;
+    transport_rejection_ = 0;
     last_chunk_id_ = pending_chunk_id_ = 0;
+    last_seq_ = -1;
     expect_binary_ = false;
 }
 
@@ -309,6 +321,18 @@ void SabrinaProtocol::Fail(const char* message) {
     reconnect_requested_ = false;
     pressed_ = false;
     SetError(message);
+}
+
+void SabrinaProtocol::Recover(const char* reason) {
+    // Never replay a possibly executed turn. Cancel invalidates STT completion,
+    // stops capture and flushes old PCM before resuming the same conversation.
+    Cancel();
+    if (!press_pending_)
+        pressed_ = false;
+    retry_at_ = esp_timer_get_time() + retry_delay_seconds_ * kSecond;
+    reconnect_requested_ = true;
+    ESP_LOGI(kTag, "Transport recovery: reason=%s retry_seconds=%u", reason, retry_delay_seconds_);
+    retry_delay_seconds_ = std::min(retry_delay_seconds_ * 2, 30u);
 }
 
 void SabrinaProtocol::BeginRecording() {
@@ -452,7 +476,7 @@ void SabrinaProtocol::PollTranscription() {
     cJSON_free(serialized);
     cJSON_Delete(root);
     if (!sent) {
-        Fail("Connection lost before sending your transcript. Press to retry.");
+        Recover("transcript_send");
         return;
     }
     turn_active_ = true;
@@ -524,6 +548,8 @@ void SabrinaProtocol::ProcessMessage(Message&& message) {
             Settings("sabrina", true).SetString("session_id", id);
         }
         connected_ = true;
+        retry_delay_seconds_ = 1;
+        retry_at_ = 0;
         last_pong_ = last_ping_ = esp_timer_get_time();
         error_occurred_ = false;
         if (on_connected_)
@@ -586,7 +612,7 @@ void SabrinaProtocol::ProcessMessage(Message&& message) {
 bool SabrinaProtocol::AcknowledgeAudio() {
     if (pending_chunk_id_ == 0 || !SendText("{\"type\":\"audio_ack\",\"chunk_id\":" +
                                             std::to_string(pending_chunk_id_) + "}")) {
-        Fail("Sabrina audio acknowledgement failed. Press to reconnect.");
+        Recover("audio_ack");
         return false;
     }
     last_chunk_id_ = pending_chunk_id_;
@@ -620,6 +646,14 @@ void SabrinaProtocol::PumpPlayback() {
 
 void SabrinaProtocol::Run() {
     while (!stopping_) {
+        // Consume the previous transport's failure before a new physical press
+        // starts capture; that press must not be canceled by stale disconnects.
+        if (disconnected_.exchange(false)) {
+            if (transport_rejection_.load() != 0)
+                Fail("Sabrina rejected the secure connection. Check device key and TLS setup.");
+            else
+                Recover("socket_closed");
+        }
         if (close_pending_.exchange(false)) {
             Cancel();
             reconnect_requested_ = false;
@@ -635,25 +669,24 @@ void SabrinaProtocol::Run() {
             if (state_ != State::Recording && pressed_ && !stt_running_)
                 BeginRecording();
             reconnect_requested_ = true;
+            retry_at_ = 0;
         }
-        if (!socket_ && reconnect_requested_) {
+        if (!socket_ && reconnect_requested_ && esp_timer_get_time() >= retry_at_) {
             reconnect_requested_ = false;
             Connect();
         }
         if (ingress_failed_.exchange(false))
             Fail("Sabrina audio exceeded the safe buffer or frame limit. Press to retry.");
-        if (disconnected_.exchange(false))
-            Fail("Sabrina connection closed. Check Wi-Fi and device key, then press again.");
         const auto now = esp_timer_get_time();
         if (socket_ && !connected_ && now - connection_at_ > 20 * kSecond)
-            Fail("Sabrina did not accept this device. Check provisioning and press again.");
+            Recover("session_timeout");
         if (connected_ && now - last_ping_ > 15 * kSecond) {
             last_ping_ = now;
             if (!SendText("{\"type\":\"ping\"}"))
-                Fail("Sabrina connection lost. Press to reconnect.");
+                Recover("ping_send");
         }
         if (connected_ && now - last_pong_ > 45 * kSecond)
-            Fail("Sabrina heartbeat timed out. Press to reconnect.");
+            Recover("heartbeat_timeout");
         PollTranscription();
         PumpPlayback();
         // ACK pacing bounds audio independently of reply duration. Keep
