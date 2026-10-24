@@ -4,6 +4,7 @@ struct Audio {
     bool capturing = false, accept_playback = true, started = false;
     size_t played_samples = 0, consumed = 0, missing_samples = 0, current = 0, peak = 0;
     std::deque<size_t> queue;
+    bool IsVoiceDetected() const { return false; }
     bool PushPcmPlayback(const int16_t*, size_t size, uint32_t) {
         assert(size <= 480);  // Interruption must retain 20 ms output blocks.
         if (!accept_playback || queue.size() >= capacity)

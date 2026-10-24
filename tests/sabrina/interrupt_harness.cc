@@ -92,8 +92,9 @@ struct Settings {
     void SetString(const char*, const std::string&) {}
 };
 struct Audio {
-    bool capturing = false, accept_playback = true;
+    bool capturing = false, accept_playback = true, voice = false;
     size_t played_samples = 0;
+    bool IsVoiceDetected() const { return voice; }
     bool PushPcmPlayback(const int16_t*, size_t size, uint32_t) {
         if (!accept_playback)
             return false;
@@ -116,13 +117,13 @@ public:
     std::atomic<bool> stopping_{false}, pressed_{false}, press_pending_{false},
         close_pending_{false};
     std::atomic<bool> connected_{false}, disconnected_{false}, ingress_failed_{false},
-        capture_failed_{false}, stt_running_{false};
+        capture_failed_{false}, stt_running_{false}, toggle_pending_{false};
     std::atomic<uint32_t> generation_{0};
     std::atomic<int> transport_rejection_{0};
     int64_t retry_at_ = 0;
     unsigned retry_delay_seconds_ = 1;
     std::mutex recording_mutex_, ingress_mutex_, stt_mutex_;
-    bool stt_done_ = false, error_occurred_ = false;
+    bool stt_done_ = false, error_occurred_ = false, conversation_ = false, stt_no_speech_ = false;
     std::string stt_text_, stt_error_, session_id_, ws_url_, stt_url_, device_key_;
     static void SocketEvent() {}
     uint32_t stt_generation_ = 0, playback_generation_ = 0;
@@ -136,6 +137,8 @@ public:
     sabrina::Recording recording_{320000};
     sabrina::MessageAssembler assembler_{512 * 1024};
     sabrina::ReleaseHangover release_hangover_{240000};
+    sabrina::Endpointer endpointer_{sabrina::kEndOfTurnSilenceUs, sabrina::kVoiceIdleUs,
+                                    sabrina::kMinSpeechUs};
     State state_ = State::Speaking;
     bool expect_binary_ = false, turn_active_ = true, discard_audio_ = false,
          reconnect_requested_ = false;
@@ -150,6 +153,9 @@ public:
     int recorded_samples = 0, frozen_samples = 0, iterations = 0;
     void Run();
     void Cancel(bool start_recording = false);
+    void ApplyToggle();
+    void ServiceListening(int64_t now);
+    void DiscardRecording();
     void SetState(State s) {
         state_ = s;
         state_at_ = clock_us;

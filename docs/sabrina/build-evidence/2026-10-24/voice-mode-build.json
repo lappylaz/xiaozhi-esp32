@@ -1,0 +1,39 @@
+{
+  "runtime_source": "sabrina-voice-mode-toggle (parent d2ec63a)",
+  "app_bytes": 2742624,
+  "app_sha256": "f0d83a56e64c7fc2c8b3e1852e54e191c095c5bf81e7ced46a19821ec420b1d3",
+  "assets_sha256": "7820c577020e272688330147c3a8d5ee3fee5c84dfa0fc53569470a630e7b2eb",
+  "sdk": "ESP-IDF 6.1 (fff9895c82d744c7237be8847347bdd1b07c6643, tag v6.1)",
+  "sdkconfig_defaults_order": [
+    "sdkconfig.defaults",
+    "sdkconfig.defaults.esp32s3",
+    "docs/sabrina/build-evidence/2026-10-11/startup-fixed/board.defaults",
+    "config/sabrina.defaults"
+  ],
+  "dependencies_lock": "docs/sabrina/build-evidence/2026-10-11/startup-fixed/components.lock.yaml (unchanged)",
+  "effective_sdkconfig": "identical to docs/sabrina/build-evidence/2026-10-11/startup-fixed/sdkconfig.snapshot",
+  "enabled_build": "PASS",
+  "disabled_build": "PASS (CONFIG_SABRINA_VOICE unset, 2697824-byte app)",
+  "host_tests": 10,
+  "sanitizers": [
+    "address",
+    "undefined"
+  ],
+  "mutation_check": "Seven deliberate faults each fail test_sabrina_conversation.py: no pre-roll trim, no-speech failing, no idle shutoff, mute submitting the recording, click not stopping a reply, no re-arm gap, offline click waiting out backoff.",
+  "coverage": [
+    "voice mode off until a click",
+    "300 ms re-arm gap after a click and after each drained reply",
+    "pre-roll bound over 30 s of silence",
+    "noise blip under 250 ms keeps the window open",
+    "end of turn exactly 1.5 s after the last speech",
+    "transcript, reply and automatic re-arm without a click",
+    "empty transcript keeps listening",
+    "click while listening discards the window",
+    "click during a reply interrupts it and stands by",
+    "two-minute idle shutoff",
+    "click while offline reconnects immediately",
+    "existing interruption, pacing and reconnect harnesses with the new methods compiled in"
+  ],
+  "installation": "Second AiPi-Lite (d0:cf:13:02:d7:24): app in empty ota_1 at 0x410000 with OTA selector sequence 2 NEW at 0xe000; ebef8b3 retained in ota_0 behind sequence 1. Every other region matched by on-device MD5 before and after. Startup gate accepted the image; first physical turn logged Voice mode on, a 5.06 s capture ended by the pause, received = enqueued 160498 reply bytes, and capture re-armed 310 ms after the drain.",
+  "limits": "Host tests model VAD, capture and transport. They do not certify microphone sensitivity, noisy rooms, the on-device idle shutoff, or battery drain while listening."
+}

@@ -26,6 +26,8 @@ public:
     void SendStopListening() override;
     void SendAbortSpeaking(AbortReason) override;
     void SendMcpMessage(const std::string&) override {}  // voice-only surface
+    // One click turns hands-free voice mode on or off; the worker applies it.
+    void ToggleConversation() { toggle_pending_ = true; }
 
 private:
     enum class State { Offline, Ready, Recording, Transcribing, Thinking, Speaking, Draining };
@@ -41,6 +43,7 @@ private:
     std::atomic<bool> stopping_{false}, connected_{false}, disconnected_{false};
     std::atomic<bool> pressed_{false}, press_pending_{false}, close_pending_{false};
     std::atomic<bool> ingress_failed_{false}, capture_failed_{false}, stt_running_{false};
+    std::atomic<bool> toggle_pending_{false};
     std::atomic<uint32_t> generation_{0};
     std::atomic<int> transport_rejection_{0};
     std::mutex ingress_mutex_, recording_mutex_, stt_mutex_;
@@ -55,7 +58,11 @@ private:
     std::string ws_url_, stt_url_, device_key_, stt_text_, stt_error_;
     bool stt_done_ = false, expect_binary_ = false, reconnect_requested_ = true,
          turn_active_ = false, discard_audio_ = false;
+    // Worker-owned voice mode; stt_no_speech_ is guarded by stt_mutex_.
+    bool conversation_ = false, stt_no_speech_ = false;
     sabrina::ReleaseHangover release_hangover_{240000};
+    sabrina::Endpointer endpointer_{sabrina::kEndOfTurnSilenceUs, sabrina::kVoiceIdleUs,
+                                    sabrina::kMinSpeechUs};
     int64_t state_at_ = 0, connection_at_ = 0, last_ping_ = 0, last_pong_ = 0;
     int64_t retry_at_ = 0;
     unsigned retry_delay_seconds_ = 1;
@@ -73,6 +80,9 @@ private:
     void SetState(State state);
     void BeginRecording();
     void EndRecording();
+    void DiscardRecording();
+    void ApplyToggle();
+    void ServiceListening(int64_t now);
     void Transcribe();
     void PollTranscription();
     void ProcessMessage(Message&& message);

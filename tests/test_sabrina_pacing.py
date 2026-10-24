@@ -22,7 +22,8 @@ class PacingTests(unittest.TestCase):
         harness = harness[:start] + model.replace("PLAYBACK_QUEUE_CAPACITY", capacity) + harness[end:]
         harness = harness.replace("// PRODUCTION_METHODS", "\n".join(
             [method(source, name) for name in ["Cancel", "Run", "Connect", "PollTranscription",
-                                              "ProcessMessage", "PumpPlayback", "AcknowledgeAudio"]]
+                                              "ProcessMessage", "PumpPlayback", "AcknowledgeAudio",
+                                              "ApplyToggle", "ServiceListening", "DiscardRecording"]]
             + [method(source, "CloseSocket").replace("::CloseSocket()", "::ResetTransport()")]
         )) + main
         with tempfile.TemporaryDirectory() as folder:

@@ -69,8 +69,8 @@ public:
 
     void SetStatus(const char* status) override {
         const char* text = status;
-        if (strcmp(status, "Hold button to talk") == 0)
-            text = "Hold to talk";
+        if (strcmp(status, "Press button to talk") == 0)
+            text = "Press to talk";
         else if (strcmp(status, "Connecting to Sabrina") == 0)
             text = "Connecting";
         else if (strcmp(status, "Sabrina is thinking") == 0)

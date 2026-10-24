@@ -794,7 +794,9 @@ void Application::StopListening() { xEventGroupSetBits(event_group_, MAIN_EVENT_
 
 void Application::HandleToggleChatEvent() {
 #if CONFIG_SABRINA_VOICE
-    // AiPi uses physical press/release; legacy click toggles are not voice turns.
+    // AiPi click toggles hands-free voice mode; the protocol owns the turn loop.
+    if (protocol_)
+        static_cast<SabrinaProtocol*>(protocol_.get())->ToggleConversation();
     return;
 #endif
     auto state = GetDeviceState();

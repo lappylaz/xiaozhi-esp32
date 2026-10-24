@@ -43,7 +43,8 @@ int transport;''')
     return &transport;
 }''')
         names = ['SocketEvent', 'Cancel', 'Run', 'Connect', 'Fail', 'PollTranscription', 'ProcessMessage',
-                 'PumpPlayback', 'AcknowledgeAudio', 'CloseSocket']
+                 'PumpPlayback', 'AcknowledgeAudio', 'CloseSocket', 'ApplyToggle', 'ServiceListening',
+                 'DiscardRecording']
         if 'void SabrinaProtocol::Recover(' in source:
             names += ['Recover']
         harness = harness.replace('// PRODUCTION_METHODS', '\n'.join(method(source, n) for n in names))
