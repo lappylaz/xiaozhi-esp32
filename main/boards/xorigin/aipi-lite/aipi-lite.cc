@@ -136,13 +136,13 @@ private:
 
     void InitializeButtons() {
 #if CONFIG_SABRINA_VOICE
-        boot_button_.OnPressDown([this]() {
+        // One click turns hands-free voice mode on (listen, reply, listen again);
+        // the next click mutes the microphone and stops any reply.
+        boot_button_.OnClick([this]() {
             power_save_timer_->WakeUp();
-            Application::GetInstance().StartListening();
+            Application::GetInstance().ToggleChatState();
         });
-        boot_button_.OnPressUp([]() { Application::GetInstance().StopListening(); });
-        // Long speech must not erase Wi-Fi settings. Deliberate triple-click
-        // retains the upstream provisioning entry without colliding with PTT.
+        // Deliberate triple-click retains the upstream provisioning entry.
         boot_button_.OnMultipleClick([this]() { EnterWifiConfigMode(); }, 3);
 #else
         boot_button_.OnClick([this]() {

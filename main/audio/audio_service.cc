@@ -716,6 +716,9 @@ void AudioService::ReleaseWakeWordResources() {
 
 void AudioService::EnableVoiceProcessing(bool enable) {
     ESP_LOGD(TAG, "%s voice processing", enable ? "Enabling" : "Disabling");
+    // The engine clears its speaking flag on disable without a VAD callback, so
+    // a new capture must not inherit speech from the previous one.
+    voice_detected_ = false;
 
     if (enable) {
         if (!InitializeAudioEngine()) {

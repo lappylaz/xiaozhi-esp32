@@ -71,15 +71,19 @@ request. Backend ownership checks remain authoritative on reconnect.
 
 ## Interaction and audio lifecycle
 
-1. Wait for **Hold button to talk**. Press and hold the talk button.
-2. **Listening** indicates capture has actually started. A press starts local
-   capture before socket teardown or reconnection. A release during the handshake
-   preserves that recording; its completed transcript waits for authentication.
-3. Release to submit. The microphone remains active for an explicit 240 ms
-   hangover to protect the last syllable. The input/feed boundary is joined,
-   processed AFE partial output is flushed under its output mutex, and the owned
-   buffer is frozen. Unprocessed AFE input is invalidated at this boundary; the
-   hangover is not claimed to drain every internal AFE sample.
+1. Wait for **Press button to talk**. One click on the talk button turns voice
+   mode on; the next click turns it off. A click while offline reconnects at once.
+2. **Listening** indicates capture has actually started. Until VAD reports speech,
+   only the newest 0.5 s is kept as pre-roll, so waiting never fills the buffer.
+   A turn ends 1.5 s after the last speech (the iOS app's default silence
+   timeout). Speech totalling under 250 ms is treated as noise and the window
+   stays open. Two minutes without speech turns voice mode off. At the end of a
+   turn the input/feed boundary is joined, processed AFE partial output is flushed
+   under its output mutex, and the owned buffer is frozen. Unprocessed AFE input
+   is invalidated at this boundary.
+3. After the reply drains, listening resumes 300 ms later without a click, so the
+   speaker tail is not taken as the next turn. An empty transcript (noise that
+   held VAD open) also resumes listening instead of failing.
 4. STT runs in a separate task so voice control and heartbeat remain responsive.
    The request owns its immutable PCM buffer. Both chunked and length-delimited
    response bodies are collected during the HTTP operation and checked complete.
@@ -103,20 +107,22 @@ request. Backend ownership checks remain authoritative on reconnect.
    chunks omit it. Control messages and pongs continue to be processed while
    playback is backpressured. **Speaking** continues until the queue and its
    in-flight output drain, even after the server sends `done`.
-7. Pressing during speech or thinking cancels the old turn, flushes pending local
-   audio, starts the new recording immediately while the button is held, closes
-   the old socket, and resumes the authoritative session on a fresh connection.
+7. A click during transcription, thinking or speech cancels the turn, flushes
+   pending local audio, turns voice mode off, closes the old socket, and resumes
+   the authoritative session on a fresh connection in standby. A click while
+   listening discards the open window without transcribing it.
    An already executing speaker write may finish its 20 ms chunk. Reconnection
    isolates late binary frames, which do not carry turn IDs in the backend
    protocol. A canceled STT result is rejected by generation.
 
 Transient disconnects (including clean socket closes), failed heartbeat/ACK sends,
 and session timeouts automatically retry after 1, 2, 4, 8, 16, then at most 30
-seconds. Authentication resets the delay. An explicit press can retry sooner.
+seconds. Authentication resets the delay. A click can retry sooner. Voice mode
+stays on across these transient recoveries and listens again once reconnected.
 Recovery stops the interrupted recording/playback, invalidates its transcription,
 and resumes the server-issued conversation ID. It never automatically records or
 replays a request that may already have executed; repeat a lost question after
-**Hold button to talk** returns. HTTP 401/403, server authentication/protocol
+listening resumes. HTTP 401/403, server authentication/protocol
 refusals (4001/4002), and certificate-verification failures stop automatic retries.
 Malformed audio/protocol messages also remain explicit failures. These are
 separate from transient network failures, and TLS verification is never disabled.
@@ -127,10 +133,10 @@ retained session ID, capped backoff, auth/TLS refusal, heartbeat/send/handshake
 failure, stale-turn invalidation, and a press concurrent with disconnect. This is
 host evidence; recovery after a real Wi-Fi outage still requires device acceptance.
 
-Capture is limited to 20 seconds / 640,000 PCM bytes. A recording that exceeds
-the cap fails explicitly, rather than submitting a truncated sentence. Socket
-messages are capped at 512 KiB and the inbox at 1 MiB / 128 messages. Overflow
-fails the turn and makes the next press reconnect; speech is never evicted from
+Capture is limited to 20 seconds / 640,000 PCM bytes. In voice mode a turn that
+reaches the cap is submitted with what was captured. Socket messages are capped
+at 512 KiB and the inbox at 1 MiB / 128 messages. Overflow fails the turn, turns
+voice mode off and makes the next click reconnect; speech is never evicted from
 the queue to make room. ACK pacing bounds ingress independently of response
 length; these defensive limits remain unchanged. Unsupported backend flow
 negotiation, oversized/odd chunks, and missing/duplicate/out-of-order chunk IDs
@@ -143,11 +149,11 @@ does not fall back to unbounded legacy audio.
 Server followup offers also play and drain. If an offer arrives after the user
 has already started recording, its paired audio is intentionally discarded with
 an explicit byte count and acknowledged to release server backpressure, so
-Sabrina cannot speak into the microphone. This is
-button-controlled half-duplex operation. It does not claim acoustic echo-free
-barge-in or hands-free operation; the board has no established playback-reference
-channel for AEC. Triple-click enters Wi-Fi setup; a long PTT no longer triggers
-the upstream long-press Wi-Fi reset behavior.
+Sabrina cannot speak into the microphone. Voice mode is half-duplex: the
+microphone is off while Sabrina speaks, and a click is the only interruption. It
+does not claim acoustic echo-free barge-in; the board has no established
+playback-reference channel for AEC. Triple-click enters Wi-Fi setup; a long press
+does not trigger the upstream long-press Wi-Fi reset behavior.
 
 ## Verification and remaining device acceptance
 
@@ -186,9 +192,10 @@ Required physical acceptance:
 
 - Independent microphone capture and known PCM speaker test.
 - Public DNS/TLS from ordinary Wi-Fi, with no device VPN, valid clock and key.
-- Short/long holds, release during connection, rapid re-press and recording cap.
+- Voice mode on/off, end-of-turn pause, re-arm after replies, two-minute auto-off,
+  click during connection and recording cap.
 - Multi-sentence playback under bursty delivery, correct final drain and no gaps.
-- Press interruption during thinking, STT and playback; no late old speech.
+- Click interruption during thinking, STT and playback; no late old speech.
 - Wi-Fi loss and automatic reconnect; expired/revoked key rejects both routes.
 - Multi-turn session continuity and spoken tool confirmations under the owner.
 - Sustained repeated conversations, with memory and received/enqueued counters.

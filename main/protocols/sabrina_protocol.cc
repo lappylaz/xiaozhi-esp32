@@ -123,7 +123,8 @@ void SabrinaProtocol::SetState(State state) {
         case State::Offline:
             break;
         case State::Ready:
-            status = "Hold button to talk";
+            // In voice mode Ready only lasts until the microphone re-arms.
+            status = conversation_ ? "Listening" : "Press button to talk";
             device_state = kDeviceStateIdle;
             break;
         case State::Recording:
@@ -320,6 +321,7 @@ void SabrinaProtocol::Fail(const char* message) {
     Cancel();
     reconnect_requested_ = false;
     pressed_ = false;
+    conversation_ = false;
     SetError(message);
 }
 
@@ -367,7 +369,8 @@ void SabrinaProtocol::EndRecording() {
         std::lock_guard<std::mutex> lock(recording_mutex_);
         upload_ = recording_.Freeze();
     }
-    if (capture_failed_) {
+    // In voice mode the 20-second cap ends the turn with what was captured.
+    if (capture_failed_ && !conversation_) {
         upload_.clear();
         Fail("Recording limit reached. Hold for at most 20 seconds and try again.");
         return;
@@ -402,6 +405,59 @@ void SabrinaProtocol::EndRecording() {
     }
 }
 
+void SabrinaProtocol::DiscardRecording() {
+    // Muting the microphone drops the open window; nothing is transcribed.
+    audio_.StopPcmCaptureAndFlush();
+    {
+        std::lock_guard<std::mutex> lock(recording_mutex_);
+        recording_.Freeze();
+    }
+    SetState(State::Ready);
+}
+
+void SabrinaProtocol::ApplyToggle() {
+    conversation_ = !conversation_;
+    ESP_LOGI(kTag, "Voice mode %s", conversation_ ? "on" : "off");
+    if (conversation_) {
+        // Like a press, a click reconnects immediately. Listening starts at Ready.
+        reconnect_requested_ = true;
+        retry_at_ = 0;
+        SetState(state_);
+        return;
+    }
+    if (state_ == State::Recording) {
+        DiscardRecording();
+    } else if (state_ != State::Ready && state_ != State::Offline) {
+        // A click during transcription, thinking or a reply stops that turn.
+        Cancel();
+        reconnect_requested_ = true;
+        retry_at_ = 0;
+    } else {
+        SetState(state_);
+    }
+}
+
+void SabrinaProtocol::ServiceListening(int64_t now) {
+    switch (endpointer_.Update(audio_.IsVoiceDetected(), now)) {
+        case sabrina::Endpointer::Action::EndTurn:
+            EndRecording();
+            return;
+        case sabrina::Endpointer::Action::GoIdle:
+            ESP_LOGI(kTag, "Voice mode off: no speech while listening");
+            conversation_ = false;
+            DiscardRecording();
+            return;
+        case sabrina::Endpointer::Action::Listen:
+            break;
+    }
+    // Until speech starts, waiting in silence must never fill the recording.
+    if (!endpointer_.heard()) {
+        std::lock_guard<std::mutex> lock(recording_mutex_);
+        if (recording_.size() > 2 * sabrina::kPreRollSamples)
+            recording_.KeepLast(sabrina::kPreRollSamples);
+    }
+}
+
 void SabrinaProtocol::Transcribe() {
     // The STT task exclusively owns this buffer until it reports completion.
     auto pcm = std::move(upload_);
@@ -416,6 +472,7 @@ void SabrinaProtocol::Transcribe() {
     config.disable_auto_redirect = true;
     auto client = esp_http_client_init(&config);
     std::string transcript, error;
+    bool no_speech = false;
     if (!client) {
         error = "Cannot initialize transcription request.";
     } else {
@@ -436,8 +493,10 @@ void SabrinaProtocol::Transcribe() {
         else {
             auto* root = cJSON_ParseWithLength(response.body.data(), response.body.size());
             transcript = StringField(root, "text");
-            if (transcript.empty())
-                error = "No speech recognized. Hold the button and try again.";
+            if (transcript.empty()) {
+                no_speech = true;
+                error = "No speech recognized. Press the button and try again.";
+            }
             cJSON_Delete(root);
         }
         esp_http_client_cleanup(client);
@@ -445,6 +504,7 @@ void SabrinaProtocol::Transcribe() {
     std::lock_guard<std::mutex> lock(stt_mutex_);
     stt_text_ = std::move(transcript);
     stt_error_ = std::move(error);
+    stt_no_speech_ = no_speech;
     stt_done_ = true;
 }
 
@@ -453,6 +513,7 @@ void SabrinaProtocol::PollTranscription() {
     if (!connected_)
         return;
     std::string text, error;
+    bool no_speech;
     {
         std::lock_guard<std::mutex> lock(stt_mutex_);
         if (!stt_done_ || stt_running_)
@@ -462,6 +523,12 @@ void SabrinaProtocol::PollTranscription() {
             return;
         text = std::move(stt_text_);
         error = std::move(stt_error_);
+        no_speech = stt_no_speech_;
+    }
+    // Noise that held VAD open is not a turn; voice mode keeps listening.
+    if (no_speech && conversation_) {
+        SetState(State::Ready);
+        return;
     }
     if (!error.empty()) {
         Fail(error.c_str());
@@ -671,6 +738,8 @@ void SabrinaProtocol::Run() {
             reconnect_requested_ = true;
             retry_at_ = 0;
         }
+        if (toggle_pending_.exchange(false))
+            ApplyToggle();
         if (!socket_ && reconnect_requested_ && esp_timer_get_time() >= retry_at_) {
             reconnect_requested_ = false;
             Connect();
@@ -706,11 +775,20 @@ void SabrinaProtocol::Run() {
             if (available)
                 ProcessMessage(std::move(message));
         }
-        if (state_ == State::Ready && pressed_ && !stt_running_)
+        if (state_ == State::Ready && pressed_ && !stt_running_) {
             BeginRecording();
+        } else if (state_ == State::Ready && conversation_ && !stt_running_ &&
+                   now - state_at_ >= sabrina::kVoiceRearmUs) {
+            // Voice mode re-arms once the reply has drained, after a short gap
+            // so the speaker's tail is not taken as the next turn.
+            BeginRecording();
+            endpointer_.Arm(now);
+        }
         if (state_ == State::Recording) {
             if (capture_failed_)
                 EndRecording();
+            else if (conversation_)
+                ServiceListening(now);
             // Bounded microphone hangover protects the final syllable. This
             // is explicit additional capture, not a claim of AFE queue drain.
             else if (release_hangover_.ShouldStop(pressed_.load(), now))
