@@ -331,8 +331,12 @@ void Application::HandleNetworkDisconnectedEvent() {
     }
     if (state == kDeviceStateConnecting || state == kDeviceStateListening ||
         state == kDeviceStateSpeaking) {
-        ESP_LOGI(TAG, "Closing audio channel due to network disconnection");
-        protocol_->CloseAudioChannel();
+        // Entering Wi-Fi setup resets the protocol before stopping the station,
+        // so this disconnect can arrive with no protocol left to close.
+        if (protocol_) {
+            ESP_LOGI(TAG, "Closing audio channel due to network disconnection");
+            protocol_->CloseAudioChannel();
+        }
     }
 
     // Update the status bar immediately to show the network state

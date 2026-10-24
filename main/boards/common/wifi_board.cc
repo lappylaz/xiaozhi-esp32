@@ -54,7 +54,11 @@ void WifiBoard::StartNetwork() {
 
     // Initialize WiFi manager
     WifiManagerConfig config;
+#if CONFIG_SABRINA_VOICE
+    config.ssid_prefix = "Sabrina";
+#else
     config.ssid_prefix = "Xiaozhi";
+#endif
     config.language = Lang::CODE;
     config.show_ota_config = true;
     config.show_sleep_config = true;
@@ -200,7 +204,13 @@ void WifiBoard::EnterWifiConfigMode() {
     auto state = app.GetDeviceState();
 
     if (state == kDeviceStateSpeaking || state == kDeviceStateNotifying ||
-        state == kDeviceStateListening || state == kDeviceStateIdle) {
+        state == kDeviceStateListening || state == kDeviceStateIdle
+#if CONFIG_SABRINA_VOICE
+        // Sabrina shows Connecting while its server is unreachable, which is
+        // exactly when a Wi-Fi change may be the fix, so setup must stay open.
+        || state == kDeviceStateConnecting
+#endif
+    ) {
         // Reset protocol (close audio channel, reset protocol)
         Application::GetInstance().ResetProtocol();
 

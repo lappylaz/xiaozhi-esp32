@@ -1,0 +1,30 @@
+{
+  "runtime_source": "sabrina-setup-page-english (parent b297ac7, vendored esp-wifi-connect 3.3.1)",
+  "app_bytes": 2742992,
+  "app_sha256": "5fe36cc41cfac4182e08e225d25761e97e810c23d212e05bca4c4a5510dca75e",
+  "assets_sha256": "7820c577020e272688330147c3a8d5ee3fee5c84dfa0fc53569470a630e7b2eb",
+  "sdk": "ESP-IDF 6.1 (fff9895c82d744c7237be8847347bdd1b07c6643, tag v6.1)",
+  "sdkconfig_defaults_order": [
+    "sdkconfig.defaults",
+    "sdkconfig.defaults.esp32s3",
+    "docs/sabrina/build-evidence/2026-10-11/startup-fixed/board.defaults",
+    "config/sabrina.defaults"
+  ],
+  "dependencies_lock": "2026-10-11 components.lock.yaml, except 78/esp-wifi-connect now resolves to the vendored override_path",
+  "effective_sdkconfig": "identical to docs/sabrina/build-evidence/2026-10-11/startup-fixed/sdkconfig.snapshot",
+  "reproduced_from_committed_tree": true,
+  "enabled_build": "PASS",
+  "disabled_build": "PASS (CONFIG_SABRINA_VOICE unset, 2698112-byte app)",
+  "host_tests": 10,
+  "changes": [
+    "GET / without lang redirects to /?lang=<device language> (vendor/esp-wifi-connect/SABRINA_PATCH.md)",
+    "setup hotspot and DHCP hostname prefix Sabrina on Sabrina builds",
+    "power-button double-click enters Wi-Fi setup with a 0.4 s click window on that button only",
+    "Wi-Fi setup allowed in the Connecting state on Sabrina builds",
+    "HandleNetworkDisconnectedEvent skips CloseAudioChannel when the protocol was already reset"
+  ],
+  "regression": "Entering Wi-Fi setup at runtime reset the protocol, then the station-stop disconnect dereferenced the null protocol (application.cc:335), panicked and rebooted onto the saved network before the AP started. Reproduced on the red Lite and fixed; the fixed build entered and held setup.",
+  "installation": "Red Lite d0:cf:13:02:d7:24: ota_0 with seq 5, fallback ota_1. EVO 80:b5:4e:d6:0d:40: ota_1 with seq 2, fallback ota_0 (voice-mode f0d83a56). Every other region was matched by on-device MD5 before and after.",
+  "device_acceptance": "Operator confirmed on the red Lite: a power-button double-click entered and held setup, Sabrina-D725 was visible, and a typed http://192.168.4.1 loaded in English. Operator confirmed the EVO working on this build.",
+  "limits": "The setup page is checked only from one iPhone; other browsers and the done page are not separately exercised."
+}
