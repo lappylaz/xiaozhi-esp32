@@ -236,11 +236,25 @@ void WifiConfigurationAp::StartWebServer()
         .uri = "/",
         .method = HTTP_GET,
         .handler = [](httpd_req_t *req) -> esp_err_t {
+            // A typed address carries no language, and the page would then
+            // prefer whatever this browser remembered for 192.168.4.1 from
+            // some earlier device. Send the device's own language instead.
+            auto *this_ = static_cast<WifiConfigurationAp *>(req->user_ctx);
+            char query[128];
+            char lang[16];
+            if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK ||
+                httpd_query_key_value(query, "lang", lang, sizeof(lang)) != ESP_OK) {
+                std::string url = "/?lang=" + this_->language_;
+                httpd_resp_set_status(req, "302 Found");
+                httpd_resp_set_hdr(req, "Location", url.c_str());
+                httpd_resp_set_hdr(req, "Connection", "close");
+                return httpd_resp_send(req, nullptr, 0);
+            }
             httpd_resp_set_hdr(req, "Connection", "close");
             httpd_resp_send(req, index_html_start, strlen(index_html_start));
             return ESP_OK;
         },
-        .user_ctx = NULL
+        .user_ctx = this
     };
     ESP_ERROR_CHECK(httpd_register_uri_handler(server_, &index_html));
 

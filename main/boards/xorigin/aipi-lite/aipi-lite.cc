@@ -28,6 +28,13 @@
 
 class AIPILite : public WifiBoard {
 private:
+#if CONFIG_SABRINA_VOICE
+    // A power-button double-click opens Wi-Fi setup. Each press and the gap
+    // between them may take 0.4 s instead of the component's 0.18 s default.
+    static constexpr uint16_t kPowerButtonClickMs = 400;
+#else
+    static constexpr uint16_t kPowerButtonClickMs = 0;  // component default
+#endif
     i2c_master_bus_handle_t i2c_bus_;
     Button boot_button_;
     Button power_button_;
@@ -142,7 +149,12 @@ private:
             power_save_timer_->WakeUp();
             Application::GetInstance().ToggleChatState();
         });
-        // Deliberate triple-click retains the upstream provisioning entry.
+        // Double-click the power button to open Wi-Fi setup; holding it still
+        // powers off. A very fast triple-click of the talk button also works.
+        power_button_.OnDoubleClick([this]() {
+            power_save_timer_->WakeUp();
+            EnterWifiConfigMode();
+        });
         boot_button_.OnMultipleClick([this]() { EnterWifiConfigMode(); }, 3);
 #else
         boot_button_.OnClick([this]() {
@@ -195,7 +207,9 @@ private:
     void InitializeTools() {}
 
 public:
-    AIPILite() : boot_button_(BOOT_BUTTON_GPIO), power_button_(POWER_BUTTON_GPIO) {
+    AIPILite()
+        : boot_button_(BOOT_BUTTON_GPIO),
+          power_button_(POWER_BUTTON_GPIO, false, 0, kPowerButtonClickMs) {
 #if CONFIG_SABRINA_VOICE
         // US Eastern local display time; SNTP and TLS continue to use UTC epoch.
         setenv("TZ", sabrina::kEasternTimezone, 1);

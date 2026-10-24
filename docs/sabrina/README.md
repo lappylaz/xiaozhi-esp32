@@ -152,8 +152,19 @@ an explicit byte count and acknowledged to release server backpressure, so
 Sabrina cannot speak into the microphone. Voice mode is half-duplex: the
 microphone is off while Sabrina speaks, and a click is the only interruption. It
 does not claim acoustic echo-free barge-in; the board has no established
-playback-reference channel for AEC. Triple-click enters Wi-Fi setup; a long press
-does not trigger the upstream long-press Wi-Fi reset behavior.
+playback-reference channel for AEC.
+
+## Wi-Fi setup
+
+Double-click the power (left) button to enter Wi-Fi setup; each press and the gap
+may take up to 0.4 s, and holding the button still powers off. A triple-click of
+the talk button also works, but only within the component's 0.18 s window. Setup
+is reachable while Sabrina shows Connecting, which is when its server is
+unreachable. The setup hotspot is `Sabrina-XXXX` (the last four hex digits of the
+softAP MAC) at `http://192.168.4.1`. A typed address without `lang` is redirected
+to the device language, so a language the phone's browser saved from an earlier
+device cannot override it (`vendor/esp-wifi-connect/SABRINA_PATCH.md`). Leaving
+setup reconnects and rebuilds the voice session without a restart.
 
 ## Verification and remaining device acceptance
 
